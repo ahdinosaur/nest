@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 common_macros = "0.1"
+serde_json = "1.0"
