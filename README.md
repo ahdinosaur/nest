@@ -1,10 +1,6 @@
 # nest
 
-nested data structures using the filesystem as your database.
-
-_work in progress_
-
-## api sketch
+nested data structures with two-way binding to filesystem storage.
 
 ```
 nest::Database(config)
