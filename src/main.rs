@@ -28,13 +28,15 @@ fn main() {
 }
 
 struct Database {
-    store: Store
+    store: Store,
+    path: Vec<String>
 }
 
 impl Database {
     pub fn new (store: Store) -> Self {
         Database {
-            store
+            store,
+            path: vec![],
         }
     }
 
@@ -47,6 +49,21 @@ impl Database {
         let value = get_from_store(store, &path, depth)?;
 
         Ok(Some(value))
+    }
+
+    pub fn walk (&self, path: Vec<String>) -> Option<Database> {
+        match traverse_tree(&path, &self.store) {
+            None => None,
+            Some((extra_path, store)) => {
+                let depth = path.len() - extra_path.len();
+                let nested_path = path.get(0..depth).unwrap().to_vec();
+
+                Some(Database {
+                    store: (*store).clone(),
+                    path: nested_path,
+                })
+            }
+        }
     }
 }
 
@@ -123,7 +140,7 @@ fn store_value (store: &Store, data: &String) -> Result<Value, DatabaseError> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Store {
     Tree(BTreeMap<String, Store>),
     Json
