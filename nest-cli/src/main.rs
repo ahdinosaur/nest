@@ -1,22 +1,34 @@
-use nest::{Database, Value};
+use nest::{Store, Value};
 
 use serde_json::json;
 
 fn main() {
-    let store = json!({
+    let schema = json!({
         "example-data": {
             "foo": "json"
         }
     }).into();
-    let database = Database::new(
-        store
-    );
-    let foobar = database.get(vec!["example-data".into(), "foo".into(), "bar".into()]).unwrap();
+    let store = Store::new(schema);
+
+    // TODO change to use &str's
+    let foobar = store.get(vec!["example-data".into(), "foo".into(), "bar".into()]).unwrap();
     println!("foobar {:?}", foobar);
 
-    database.set(vec!["example-data".into(), "foo".into(), "bar".into()], &Value::String("hello".into())).unwrap();
+    store.set(vec!["example-data".into(), "foo".into(), "bar".into()], &Value::String("hello".into())).unwrap();
 
-    let ab = database.get(vec!["a".into(), "b".into()]);
+    let ab = store.get(vec!["a".into(), "b".into()]);
     println!("ab {:?}", ab);
 }
 
+// dyndns-host
+// config = db.sub(['dyndns', 'host'])
+// config.get(['guests'])
+// config.set(['guests'], 'butt')
+
+// mix = db.get(['humans', 'mix'])
+// mix.get()
+// mix.set({ name: 'Mix' })
+//
+// db.set(['humans', 'mix'], { name: 'Mix' })
+//
+// immutable-rs

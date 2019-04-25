@@ -2,22 +2,17 @@
 
 nested data structures with two-way binding to filesystem storage.
 
-```
-nest::Database(config)
-```
+---
 
 ```
-config = {
-  path,
-  structure
-}
+nest::Store(schema)
 ```
 
 ```
 config = {
   path: '/etc/peach',
   indexKey: 'config',
-  structure: {
+  schema: {
     config: ['toml', 'hjson'],
     dyndns: {
       host: {
