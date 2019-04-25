@@ -1,12 +1,13 @@
-use common_macros::b_tree_map;
-use nest::{Database, Error, Store, Value};
+use nest::{Database, Value};
+
+use serde_json::json;
 
 fn main() {
-    let store = Store::Tree(b_tree_map! {
-        "example-data".into() => Store::Tree(b_tree_map! {
-            "foo".into() => Store::Json
-        })
-    });
+    let store = json!({
+        "example-data": {
+            "foo": "json"
+        }
+    }).into();
     let database = Database::new(
         store
     );
