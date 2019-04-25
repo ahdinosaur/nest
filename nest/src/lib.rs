@@ -1,6 +1,5 @@
 use std::convert::{From, Into};
 use std::collections::BTreeMap;
-use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::io;
@@ -10,29 +9,10 @@ use std::iter::FromIterator;
 use std::option;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
-use common_macros::b_tree_map;
 use serde_json as json;
 use serde_json::Number;
 
-fn main() {
-    let store = Store::Tree(b_tree_map! {
-        "test".into() => Store::Tree(b_tree_map! {
-            "foo".into() => Store::Json
-        })
-    });
-    let database = Database::new(
-        store
-    );
-    let foobar = database.get(vec!["test".into(), "foo".into(), "bar".into()]).unwrap();
-    println!("foobar {:?}", foobar);
-
-    database.set(vec!["test".into(), "foo".into(), "bar".into()], &Value::String("hello".into())).unwrap();
-
-    let ab = database.get(vec!["a".into(), "b".into()]);
-    println!("ab {:?}", ab);
-}
-
-struct Database {
+pub struct Database {
     store: Store,
     path: Vec<String>
 }
@@ -45,9 +25,9 @@ impl Database {
         }
     }
 
-    pub fn get (&self, path: Vec<String>) -> Result<Value, DatabaseError> {
+    pub fn get (&self, path: Vec<String>) -> Result<Value, Error> {
         let traversed = traverse_tree(&path, &self.store);
-        if traversed.is_none() { return Err(DatabaseError::NotFound) }
+        if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, store) = traversed.unwrap();
 
         let depth = path.len() - extra_path.len();
@@ -71,9 +51,9 @@ impl Database {
         }
     }
 
-    pub fn set (&self, path: Vec<String>, value: &Value) -> Result<(), DatabaseError> {
+    pub fn set (&self, path: Vec<String>, value: &Value) -> Result<(), Error> {
         let traversed = traverse_tree(&path, &self.store);
-        if traversed.is_none() { return Err(DatabaseError::NotFound) }
+        if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, store) = traversed.unwrap();
 
         let depth = path.len() - extra_path.len();
@@ -112,10 +92,10 @@ fn traverse_tree <'a, 'b> (path: &'a [String], store: &'b Store) -> Option<(&'a 
     }
 }
 
-fn get_in_store (store: &Store, path: &[String], depth: usize) -> Result<Value, DatabaseError> {
+fn get_in_store (store: &Store, path: &[String], depth: usize) -> Result<Value, Error> {
     if let Store::Tree(map) = store {
         let mut next_map = BTreeMap::new();
-        map.into_iter().try_for_each(|(key, store)| -> Result<(), DatabaseError> {
+        map.into_iter().try_for_each(|(key, store)| -> Result<(), Error> {
             let value = get_in_store(store, path, depth + 1)?;
             next_map.insert(key.clone(), value);
             Ok(())
@@ -134,16 +114,16 @@ fn get_in_store (store: &Store, path: &[String], depth: usize) -> Result<Value, 
     get_in_value(value_path, value)
 }
 
-fn set_in_store (store: &Store, path: &[String], value: &Value, depth: usize) -> Result<(), DatabaseError> {
+fn set_in_store (store: &Store, path: &[String], value: &Value, depth: usize) -> Result<(), Error> {
     if let Store::Tree(map) = store {
-        return map.into_iter().try_for_each(|(key, store)| -> Result<(), DatabaseError> {
+        return map.into_iter().try_for_each(|(key, store)| -> Result<(), Error> {
             if let Value::Object(object) = value {
                 if let Some(nested_value) = object.get(key) {
                     set_in_store(store, path, nested_value, depth + 1)?;
                 }
                 Ok(())
             } else {
-                Err(DatabaseError::BadInput)
+                Err(Error::BadInput)
             }
         })
     }
@@ -164,27 +144,27 @@ fn set_in_store (store: &Store, path: &[String], value: &Value, depth: usize) ->
     Ok(())
 }
 
-fn get_in_value (path: &[String], value: Value) -> Result<Value, DatabaseError> {
+fn get_in_value (path: &[String], value: Value) -> Result<Value, Error> {
     if path.len() == 0 { return Ok(value); }
     match value {
         Value::Object(object) => {
             let key = path.get(0).unwrap();
             let next_path = path.get(1..path.len()).unwrap();
-            let next_value = object.get(key).ok_or(DatabaseError::NotFound)?;
+            let next_value = object.get(key).ok_or(Error::NotFound)?;
             get_in_value(next_path, next_value.clone())
         },
         _ => Ok(value)
     }
 }
 
-fn set_in_value (value: Value, path: &[String], next_value_at_path: Value) -> Result<Value, DatabaseError> {
+fn set_in_value (value: Value, path: &[String], next_value_at_path: Value) -> Result<Value, Error> {
     if path.len() == 0 { return Ok(next_value_at_path); }
     match value {
         Value::Object(map) => {
             let next_key = path.get(0).unwrap().clone();
             let next_path = path.get(1..path.len()).unwrap();
             let mut next_map = BTreeMap::new();
-            map.into_iter().try_for_each(|(key, nested_value)| -> Result<(), DatabaseError> {
+            map.into_iter().try_for_each(|(key, nested_value)| -> Result<(), Error> {
                 let next_nested_value = if key == next_key {
                     set_in_value(nested_value, next_path, next_value_at_path.clone())?
                 } else {
@@ -199,42 +179,42 @@ fn set_in_value (value: Value, path: &[String], next_value_at_path: Value) -> Re
     }
 }
 
-fn store_file_extension (store: &Store) -> Result<String, DatabaseError> {
+fn store_file_extension (store: &Store) -> Result<String, Error> {
     match store {
         Store::Json => Ok(".json".into()),
-        _ => return Err(DatabaseError::Unexpected)
+        _ => return Err(Error::Unexpected)
     }
 }
 
-fn store_data_to_value (store: &Store, data: &String) -> Result<Value, DatabaseError> {
+fn store_data_to_value (store: &Store, data: &String) -> Result<Value, Error> {
     match store {
         Store::Json => {
             let json_value: json::Value = json::from_str(&data)?;
             Ok(json_value.into())
         },
-        _ => return Err(DatabaseError::Unexpected)
+        _ => return Err(Error::Unexpected)
     }
 }
 
-fn store_value_to_data (store: &Store, value: &Value) -> Result<String, DatabaseError> {
+fn store_value_to_data (store: &Store, value: &Value) -> Result<String, Error> {
     match store {
         Store::Json => {
             let json_value: json::Value = value.clone().into();
             let json_string = json::to_string_pretty(&json_value)?;
             Ok(json_string)
         },
-        _ => return Err(DatabaseError::Unexpected)
+        _ => return Err(Error::Unexpected)
     }
 }
 
 #[derive(Debug, Clone)]
-enum Store {
+pub enum Store {
     Tree(BTreeMap<String, Store>),
     Json
 }
 
 #[derive(Debug, Clone)]
-enum Value {
+pub enum Value {
     Null,
     Bool(bool),
     Number(Number),
@@ -271,7 +251,7 @@ impl From<Value> for json::Value {
 
 
 #[derive(Debug)]
-enum DatabaseError {
+pub enum Error {
     Io(io::Error),
     Json(json::error::Error),
     NotFound,
@@ -279,39 +259,39 @@ enum DatabaseError {
     Unexpected
 }
 
-impl fmt::Display for DatabaseError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            DatabaseError::Io(ref err) => err.fmt(f),
-            DatabaseError::Json(ref err) => err.fmt(f),
-            DatabaseError::NotFound => write!(f, "Path not found"),
-            DatabaseError::BadInput => write!(f, "Bad input"),
-            DatabaseError::Unexpected => write!(f, "Unexpected (programmer) error"),
+            Error::Io(ref err) => err.fmt(f),
+            Error::Json(ref err) => err.fmt(f),
+            Error::NotFound => write!(f, "Path not found"),
+            Error::BadInput => write!(f, "Bad input"),
+            Error::Unexpected => write!(f, "Unexpected (programmer) error"),
         }
     }
 }
 
-impl Error for DatabaseError {
+impl std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
-            DatabaseError::Io(ref err) => err.description(),
-            DatabaseError::Json(ref err) => err.description(),
-            DatabaseError::NotFound => "not found",
-            DatabaseError::Unexpected => "unexpected",
-            DatabaseError::BadInput => "bad input",
+            Error::Io(ref err) => err.description(),
+            Error::Json(ref err) => err.description(),
+            Error::NotFound => "not found",
+            Error::Unexpected => "unexpected",
+            Error::BadInput => "bad input",
         }
     }
 }
 
-impl From<io::Error> for DatabaseError {
-    fn from(err: io::Error) -> DatabaseError {
-        DatabaseError::Io(err)
+impl From<io::Error> for Error {
+    fn from(err: io::Error) -> Error {
+        Error::Io(err)
     }
 }
 
-impl From<json::error::Error> for DatabaseError {
-    fn from(err: json::error::Error) -> DatabaseError {
-        DatabaseError::Json(err)
+impl From<json::error::Error> for Error {
+    fn from(err: json::error::Error) -> Error {
+        Error::Json(err)
     }
 }
 

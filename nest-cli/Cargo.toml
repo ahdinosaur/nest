@@ -1,0 +1,9 @@
+[package]
+name = "nest-cli"
+version = "0.1.0"
+authors = ["Michael Williams <michael.williams@enspiral.com>"]
+edition = "2018"
+
+[dependencies]
+nest = { path = "../nest" }
+common_macros = "0.1"

@@ -50,8 +50,15 @@ name = "nest"
 version = "0.1.0"
 dependencies = [
  "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "common_macros 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "nest-cli"
+version = "0.1.0"
+dependencies = [
+ "common_macros 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nest 0.1.0",
 ]
 
 [[package]]
