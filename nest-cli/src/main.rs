@@ -12,12 +12,12 @@ fn main() {
     let store = Store::new(schema, root);
 
     // TODO change to use &str's
-    let foobar = store.get(vec!["example-data", "foo", "bar"]).unwrap();
+    let foobar = store.get(&["example-data", "foo", "bar"]).unwrap();
     println!("foobar {:?}", foobar);
 
-    store.set(vec!["example-data", "foo", "bar"], &Value::String("hello".into())).unwrap();
+    store.set(&["example-data", "foo", "bar"], &Value::String("hello".into())).unwrap();
 
-    let ab = store.get(vec!["a", "b"]);
+    let ab = store.get(&["a", "b"]);
     println!("ab {:?}", ab);
 }
 

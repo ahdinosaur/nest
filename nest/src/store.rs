@@ -27,31 +27,23 @@ impl Store {
         }
     }
 
-    pub fn get<A> (&self, path: Vec<A>) -> Result<Value, Error>
-        where A: Into<String>
-    {
-        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
-
-        let traversed = traverse_schema(&path_as_strings, &self.schema);
+    pub fn get (&self, path: &[&str]) -> Result<Value, Error> {
+        let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, schema) = traversed.unwrap();
 
-        let depth = path_as_strings.len() - extra_path.len();
-        let value = get_in_schema(schema, &self.root, &path_as_strings, depth)?;
+        let depth = path.len() - extra_path.len();
+        let value = get_in_schema(schema, &self.root, path, depth)?;
 
         Ok(value)
     }
 
-    pub fn walk<A> (&self, path: Vec<A>) -> Option<Store>
-        where A: Into<String>
-    {
-        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
-
-        match traverse_schema(&path_as_strings, &self.schema) {
+    pub fn walk (&self, path: &[&str]) -> Option<Store> {
+        match traverse_schema(path, &self.schema) {
             None => None,
             Some((extra_path, schema)) => {
-                let depth = path_as_strings.len() - extra_path.len();
-                let nested_path = path_as_strings.get(0..depth).unwrap().to_vec();
+                let depth = path.len() - extra_path.len();
+                let nested_path = path.get(0..depth).unwrap().to_vec();
 
                 Some(Store {
                     schema: (*schema).clone(),
@@ -61,28 +53,24 @@ impl Store {
         }
     }
 
-    pub fn set<A> (&self, path: Vec<A>, value: &Value) -> Result<(), Error>
-        where A: Into<String>
-    {
-        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
-
-        let traversed = traverse_schema(&path_as_strings, &self.schema);
+    pub fn set (&self, path: &[&str], value: &Value) -> Result<(), Error> {
+        let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, schema) = traversed.unwrap();
 
-        let depth = path_as_strings.len() - extra_path.len();
-        set_in_schema(schema, &self.root, &path_as_strings, value, depth)
+        let depth = path.len() - extra_path.len();
+        set_in_schema(schema, &self.root, path, value, depth)
     }
 }
 
-fn read_file (path: String) -> Result<String, io::Error> {
+fn read_file (path: &str) -> Result<String, io::Error> {
     let mut file = File::open(path)?;
     let mut data = String::new();
     file.read_to_string(&mut data)?;
     Ok(data)
 }
 
-fn write_file (path: String, data: String) -> Result<(), io::Error> {
+fn write_file (path: &str, data: String) -> Result<(), io::Error> {
     let atomic_file = AtomicFile::new(path, OverwriteBehavior::AllowOverwrite);
     match atomic_file.write(|file| file.write_all(data.as_bytes())) {
         Ok(()) => Ok(()),
@@ -91,13 +79,13 @@ fn write_file (path: String, data: String) -> Result<(), io::Error> {
     }
 }
 
-fn traverse_schema <'a, 'b> (path: &'a [String], schema: &'b Schema) -> Option<(&'a [String], &'b Schema)> {
+fn traverse_schema <'a, 'b, 'c> (path: &'a [&'b str], schema: &'c Schema) -> Option<(&'a [&'b str], &'c Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.len() == 0 { return Some((path, schema)) }
             let key = path.get(0).unwrap();
             let next_path = path.get(1..path.len()).unwrap();
-            match map.get(key) {
+            match map.get(*key) {
                 Some(next_schema) => traverse_schema(next_path, next_schema),
                 None => None
             }
@@ -106,7 +94,7 @@ fn traverse_schema <'a, 'b> (path: &'a [String], schema: &'b Schema) -> Option<(
     }
 }
 
-fn get_in_schema (schema: &Schema, root: &String, path: &[String], depth: usize) -> Result<Value, Error> {
+fn get_in_schema (schema: &Schema, root: &str, path: &[&str], depth: usize) -> Result<Value, Error> {
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
         map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
@@ -119,16 +107,16 @@ fn get_in_schema (schema: &Schema, root: &String, path: &[String], depth: usize)
 
     let file_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = root.clone() + &file_path.join("/") + &file_extension;
+    let file_path_string: String = root.to_string() + &file_path.join("/") + &file_extension;
 
-    let data = read_file(file_path_string)?;
+    let data = read_file(&file_path_string)?;
     let value = schema_data_to_value(schema, &data)?;
 
     let value_path = path.get(depth..path.len()).unwrap();
     get_in_value(value_path, value)
 }
 
-fn set_in_schema (schema: &Schema, root: &String, path: &[String], value: &Value, depth: usize) -> Result<(), Error> {
+fn set_in_schema (schema: &Schema, root: &str, path: &[&str], value: &Value, depth: usize) -> Result<(), Error> {
     if let Schema::Directory(map) = schema {
         return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
             if let Value::Object(object) = value {
@@ -144,34 +132,34 @@ fn set_in_schema (schema: &Schema, root: &String, path: &[String], value: &Value
 
     let file_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = root.clone() + &file_path.join("/") + &file_extension;
+    let file_path_string: String = root.to_string() + &file_path.join("/") + &file_extension;
 
-    let data = read_file(file_path_string.clone())?;
+    let data = read_file(&file_path_string)?;
     let file_value = schema_data_to_value(schema, &data)?;
 
     let value_path = path.get(depth..path.len()).unwrap();
     let next_file_value = set_in_value(file_value, value_path, value.clone())?;
 
     let data = schema_value_to_data(schema, &next_file_value)?;
-    write_file(file_path_string.clone(), data)?;
+    write_file(&file_path_string, data)?;
 
     Ok(())
 }
 
-fn get_in_value (path: &[String], value: Value) -> Result<Value, Error> {
+fn get_in_value (path: &[&str], value: Value) -> Result<Value, Error> {
     if path.len() == 0 { return Ok(value); }
     match value {
         Value::Object(object) => {
             let key = path.get(0).unwrap();
             let next_path = path.get(1..path.len()).unwrap();
-            let next_value = object.get(key).ok_or(Error::NotFound)?;
+            let next_value = object.get(*key).ok_or(Error::NotFound)?;
             get_in_value(next_path, next_value.clone())
         },
         _ => Ok(value)
     }
 }
 
-fn set_in_value (value: Value, path: &[String], next_value_at_path: Value) -> Result<Value, Error> {
+fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Result<Value, Error> {
     if path.len() == 0 { return Ok(next_value_at_path); }
     match value {
         Value::Object(map) => {
