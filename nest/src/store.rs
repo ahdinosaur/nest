@@ -14,50 +14,64 @@ use crate::value::Value;
 
 pub struct Store {
     schema: Schema,
-    path: Vec<String>
+    root: String
 }
 
 impl Store {
-    pub fn new (schema: Schema) -> Self {
+    pub fn new<A> (schema: Schema, root: A) -> Self
+        where A: Into<String>
+    {
         Store {
             schema,
-            path: vec![],
+            root: root.into(),
         }
     }
 
-    pub fn get (&self, path: Vec<String>) -> Result<Value, Error> {
-        let traversed = traverse_schema(&path, &self.schema);
+    pub fn get<A> (&self, path: Vec<A>) -> Result<Value, Error>
+        where A: Into<String>
+    {
+        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
+
+        let traversed = traverse_schema(&path_as_strings, &self.schema);
         if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, schema) = traversed.unwrap();
 
-        let depth = path.len() - extra_path.len();
-        let value = get_in_schema(schema, &path, depth)?;
+        let depth = path_as_strings.len() - extra_path.len();
+        let value = get_in_schema(schema, &self.root, &path_as_strings, depth)?;
 
         Ok(value)
     }
 
-    pub fn walk (&self, path: Vec<String>) -> Option<Store> {
-        match traverse_schema(&path, &self.schema) {
+    pub fn walk<A> (&self, path: Vec<A>) -> Option<Store>
+        where A: Into<String>
+    {
+        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
+
+        match traverse_schema(&path_as_strings, &self.schema) {
             None => None,
             Some((extra_path, schema)) => {
-                let depth = path.len() - extra_path.len();
-                let nested_path = path.get(0..depth).unwrap().to_vec();
+                let depth = path_as_strings.len() - extra_path.len();
+                let nested_path = path_as_strings.get(0..depth).unwrap().to_vec();
 
                 Some(Store {
                     schema: (*schema).clone(),
-                    path: nested_path,
+                    root: nested_path.join("/").into(),
                 })
             }
         }
     }
 
-    pub fn set (&self, path: Vec<String>, value: &Value) -> Result<(), Error> {
-        let traversed = traverse_schema(&path, &self.schema);
+    pub fn set<A> (&self, path: Vec<A>, value: &Value) -> Result<(), Error>
+        where A: Into<String>
+    {
+        let path_as_strings: Vec<String> = path.into_iter().map(|p| p.into()).collect();
+
+        let traversed = traverse_schema(&path_as_strings, &self.schema);
         if traversed.is_none() { return Err(Error::NotFound) }
         let (extra_path, schema) = traversed.unwrap();
 
-        let depth = path.len() - extra_path.len();
-        set_in_schema(schema, &path, value, depth)
+        let depth = path_as_strings.len() - extra_path.len();
+        set_in_schema(schema, &self.root, &path_as_strings, value, depth)
     }
 }
 
@@ -92,11 +106,11 @@ fn traverse_schema <'a, 'b> (path: &'a [String], schema: &'b Schema) -> Option<(
     }
 }
 
-fn get_in_schema (schema: &Schema, path: &[String], depth: usize) -> Result<Value, Error> {
+fn get_in_schema (schema: &Schema, root: &String, path: &[String], depth: usize) -> Result<Value, Error> {
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
         map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
-            let value = get_in_schema(schema, path, depth + 1)?;
+            let value = get_in_schema(schema, root, path, depth + 1)?;
             next_map.insert(key.clone(), value);
             Ok(())
         })?;
@@ -105,7 +119,7 @@ fn get_in_schema (schema: &Schema, path: &[String], depth: usize) -> Result<Valu
 
     let file_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = String::from("./") + &file_path.join("/") + &file_extension;
+    let file_path_string: String = root.clone() + &file_path.join("/") + &file_extension;
 
     let data = read_file(file_path_string)?;
     let value = schema_data_to_value(schema, &data)?;
@@ -114,12 +128,12 @@ fn get_in_schema (schema: &Schema, path: &[String], depth: usize) -> Result<Valu
     get_in_value(value_path, value)
 }
 
-fn set_in_schema (schema: &Schema, path: &[String], value: &Value, depth: usize) -> Result<(), Error> {
+fn set_in_schema (schema: &Schema, root: &String, path: &[String], value: &Value, depth: usize) -> Result<(), Error> {
     if let Schema::Directory(map) = schema {
         return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
             if let Value::Object(object) = value {
                 if let Some(nested_value) = object.get(key) {
-                    set_in_schema(schema, path, nested_value, depth + 1)?;
+                    set_in_schema(schema, root, path, nested_value, depth + 1)?;
                 }
                 Ok(())
             } else {
@@ -130,7 +144,7 @@ fn set_in_schema (schema: &Schema, path: &[String], value: &Value, depth: usize)
 
     let file_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = String::from("./") + &file_path.join("/") + &file_extension;
+    let file_path_string: String = root.clone() + &file_path.join("/") + &file_extension;
 
     let data = read_file(file_path_string.clone())?;
     let file_value = schema_data_to_value(schema, &data)?;

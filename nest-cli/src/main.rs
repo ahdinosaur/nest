@@ -8,15 +8,16 @@ fn main() {
             "foo": "json"
         }
     }).into();
-    let store = Store::new(schema);
+    let root = "./";
+    let store = Store::new(schema, root);
 
     // TODO change to use &str's
-    let foobar = store.get(vec!["example-data".into(), "foo".into(), "bar".into()]).unwrap();
+    let foobar = store.get(vec!["example-data", "foo", "bar"]).unwrap();
     println!("foobar {:?}", foobar);
 
-    store.set(vec!["example-data".into(), "foo".into(), "bar".into()], &Value::String("hello".into())).unwrap();
+    store.set(vec!["example-data", "foo", "bar"], &Value::String("hello".into())).unwrap();
 
-    let ab = store.get(vec!["a".into(), "b".into()]);
+    let ab = store.get(vec!["a", "b"]);
     println!("ab {:?}", ab);
 }
 
