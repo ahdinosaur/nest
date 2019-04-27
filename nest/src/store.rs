@@ -28,7 +28,8 @@ use crate::value::Value;
 /// /home/dinosaur/example
 /// └── hello
 ///     └── world.json
-/// # cat /home/dinosaur/example/hello/world.json
+///
+/// $ cat /home/dinosaur/example/hello/world.json
 /// {
 ///   "nest": "🐣"
 /// }
@@ -193,7 +194,6 @@ fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> 
     }
 
     // otherwise schema is a file
-    println!("{:?}", schema);
     let schema_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
     let file_path = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
