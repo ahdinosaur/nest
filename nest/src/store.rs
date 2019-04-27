@@ -40,7 +40,7 @@ impl Store {
         Ok(value)
     }
 
-    pub fn walk (&self, path: &[&str]) -> Option<Store> {
+    pub fn sub (&self, path: &[&str]) -> Option<Store> {
         match traverse_schema(path, &self.schema) {
             None => None,
             Some((extra_path, schema)) => {
