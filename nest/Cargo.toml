@@ -7,7 +7,7 @@ description = "use your filesystem as a nested data store"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/ahdinosaur/nest"
 readme = "../README.md"
-keywords = ["data store", "database", "json"]
+keywords = ["database", "json", "filesystem"]
 
 [dependencies]
 atomicwrites = "0.2"
