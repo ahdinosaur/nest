@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/nest/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/nest/0.2.0")]
 
 pub use self::error::Error;
 pub use self::store::Store;
