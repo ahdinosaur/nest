@@ -31,7 +31,7 @@ impl Store {
 
     pub fn get (&self, path: &[&str]) -> Result<Value, Error> {
         let traversed = traverse_schema(path, &self.schema);
-        if traversed.is_none() { return Err(Error::NotFound) }
+        if traversed.is_none() { return Err(Error::NotFoundInSchema) }
         let (extra_path, schema) = traversed.unwrap();
 
         let depth = path.len() - extra_path.len();
@@ -57,7 +57,7 @@ impl Store {
 
     pub fn set (&self, path: &[&str], value: &Value) -> Result<(), Error> {
         let traversed = traverse_schema(path, &self.schema);
-        if traversed.is_none() { return Err(Error::NotFound) }
+        if traversed.is_none() { return Err(Error::NotFoundInSchema) }
         let (extra_path, schema) = traversed.unwrap();
 
         let depth = path.len() - extra_path.len();
@@ -122,16 +122,16 @@ fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> 
 fn set_in_schema (schema: &Schema, root: &Path, path: &[&str], value: &Value, depth: usize) -> Result<(), Error> {
     // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
-        return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
-            if let Value::Object(object) = value {
+        if let Value::Object(object) = value {
+            return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
                 if let Some(nested_value) = object.get(key) {
                     set_in_schema(schema, root, path, nested_value, depth + 1)?;
                 }
                 Ok(())
-            } else {
-                Err(Error::BadInput)
-            }
-        })
+            })
+        } else {
+            return Err(Error::ExpectedObjectValueForDirectorySchema)
+        }
     }
 
     // otherwise schema is a file
@@ -166,7 +166,7 @@ fn get_in_value (path: &[&str], value: Value) -> Result<Value, Error> {
         Value::Object(object) => {
             let key = path.get(0).unwrap();
             let next_path = path.get(1..path.len()).unwrap();
-            let next_value = object.get(*key).ok_or(Error::NotFound)?;
+            let next_value = object.get(*key).ok_or(Error::NotFoundInValue)?;
             get_in_value(next_path, next_value.clone())
         },
         _ => Ok(value)

@@ -7,8 +7,9 @@ use serde_json as json;
 pub enum Error {
     Io(io::Error),
     Json(json::error::Error),
-    NotFound,
-    BadInput,
+    NotFoundInSchema,
+    NotFoundInValue,
+    ExpectedObjectValueForDirectorySchema,
     Unexpected
 }
 
@@ -17,8 +18,9 @@ impl fmt::Display for Error {
         match *self {
             Error::Io(ref err) => err.fmt(f),
             Error::Json(ref err) => err.fmt(f),
-            Error::NotFound => write!(f, "Path not found"),
-            Error::BadInput => write!(f, "Bad input"),
+            Error::NotFoundInSchema => write!(f, "Path not found in schema"),
+            Error::NotFoundInValue => write!(f, "Path not found in value"),
+            Error::ExpectedObjectValueForDirectorySchema => write!(f, "Expected object Value for Schema::Directory"),
             Error::Unexpected => write!(f, "Unexpected (programmer) error"),
         }
     }
@@ -29,9 +31,10 @@ impl std::error::Error for Error {
         match *self {
             Error::Io(ref err) => err.description(),
             Error::Json(ref err) => err.description(),
-            Error::NotFound => "not found",
-            Error::Unexpected => "unexpected",
-            Error::BadInput => "bad input",
+            Error::NotFoundInSchema => "not found in schema",
+            Error::NotFoundInValue => "not found in value",
+            Error::ExpectedObjectValueForDirectorySchema => "expected object value for directory schema",
+            Error::Unexpected => "programmer error",
         }
     }
 }
