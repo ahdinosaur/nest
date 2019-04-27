@@ -40,21 +40,6 @@ impl Store {
         Ok(value)
     }
 
-    pub fn sub (&self, path: &[&str]) -> Option<Store> {
-        match traverse_schema(path, &self.schema) {
-            None => None,
-            Some((extra_path, schema)) => {
-                let depth = path.len() - extra_path.len();
-                let nested_path = path.get(0..depth).unwrap().to_vec();
-
-                Some(Store {
-                    schema: (*schema).clone(),
-                    root: nested_path.join("/").into(),
-                })
-            }
-        }
-    }
-
     pub fn set (&self, path: &[&str], value: &Value) -> Result<(), Error> {
         let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFoundInSchema) }
@@ -62,6 +47,21 @@ impl Store {
 
         let depth = path.len() - extra_path.len();
         set_in_schema(schema, &self.root, path, value, depth)
+    }
+
+    pub fn sub (&self, path: &[&str]) -> Result<Store, Error> {
+        match traverse_schema(path, &self.schema) {
+            None => Err(Error::NotFoundInSchema),
+            Some((extra_path, schema)) => {
+                let depth = path.len() - extra_path.len();
+                let nested_path = path.get(0..depth).unwrap().to_vec();
+
+                Ok(Store {
+                    schema: (*schema).clone(),
+                    root: nested_path.join("/").into(),
+                })
+            }
+        }
     }
 }
 
