@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::convert::{From, Into};
-use std::fs::File;
+use std::fs::{File, read_to_string};
+use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::io;
 use std::io::Read;
 use std::io::Write;
@@ -14,13 +15,14 @@ use crate::value::Value;
 
 pub struct Store {
     schema: Schema,
-    root: String
+    root: PathBuf
 }
 
 impl Store {
     pub fn new<A> (schema: Schema, root: A) -> Self
-        where A: Into<String>
+        where A: Into<PathBuf>
     {
+        // TODO validate schema
         Store {
             schema,
             root: root.into(),
@@ -63,14 +65,11 @@ impl Store {
     }
 }
 
-fn read_file (path: &str) -> Result<String, io::Error> {
-    let mut file = File::open(path)?;
-    let mut data = String::new();
-    file.read_to_string(&mut data)?;
-    Ok(data)
+fn read_file (path: &Path) -> Result<String, io::Error> {
+    read_to_string(path)
 }
 
-fn write_file (path: &str, data: String) -> Result<(), io::Error> {
+fn write_file (path: &Path, data: String) -> Result<(), io::Error> {
     let atomic_file = AtomicFile::new(path, OverwriteBehavior::AllowOverwrite);
     match atomic_file.write(|file| file.write_all(data.as_bytes())) {
         Ok(()) => Ok(()),
@@ -94,7 +93,8 @@ fn traverse_schema <'a, 'b, 'c> (path: &'a [&'b str], schema: &'c Schema) -> Opt
     }
 }
 
-fn get_in_schema (schema: &Schema, root: &str, path: &[&str], depth: usize) -> Result<Value, Error> {
+fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> Result<Value, Error> {
+    // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
         map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
@@ -105,18 +105,22 @@ fn get_in_schema (schema: &Schema, root: &str, path: &[&str], depth: usize) -> R
         return Ok(Value::Object(next_map));
     }
 
-    let file_path = path.get(0..depth).unwrap();
+    // otherwise schema is a file
+    let schema_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = root.to_string() + &file_path.join("/") + &file_extension;
+    let file_path: PathBuf = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
 
-    let data = read_file(&file_path_string)?;
-    let value = schema_data_to_value(schema, &data)?;
+    // read the file as a value
+    let data = read_file(&file_path)?;
+    let file_value = schema_data_to_value(schema, &data)?;
 
+    // get value within file value at path
     let value_path = path.get(depth..path.len()).unwrap();
-    get_in_value(value_path, value)
+    get_in_value(value_path, file_value)
 }
 
-fn set_in_schema (schema: &Schema, root: &str, path: &[&str], value: &Value, depth: usize) -> Result<(), Error> {
+fn set_in_schema (schema: &Schema, root: &Path, path: &[&str], value: &Value, depth: usize) -> Result<(), Error> {
+    // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
             if let Value::Object(object) = value {
@@ -130,18 +134,28 @@ fn set_in_schema (schema: &Schema, root: &str, path: &[&str], value: &Value, dep
         })
     }
 
-    let file_path = path.get(0..depth).unwrap();
+    // otherwise schema is a file
+    let schema_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path_string: String = root.to_string() + &file_path.join("/") + &file_extension;
+    let file_path: PathBuf = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
 
-    let data = read_file(&file_path_string)?;
-    let file_value = schema_data_to_value(schema, &data)?;
+    // if file exists
+    let file_value = if file_path.is_file() {
+        // read the file as a value
+        let data = read_file(&file_path)?;
+        schema_data_to_value(schema, &data)?
+    } else {
+        // otherwise default to an empty object
+        Value::Object(BTreeMap::new())
+    };
 
+    // set value at path
     let value_path = path.get(depth..path.len()).unwrap();
     let next_file_value = set_in_value(file_value, value_path, value.clone())?;
 
+    // write new value to file
     let data = schema_value_to_data(schema, &next_file_value)?;
-    write_file(&file_path_string, data)?;
+    write_file(&file_path, data)?;
 
     Ok(())
 }
@@ -183,7 +197,7 @@ fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Resul
 
 fn schema_file_extension (schema: &Schema) -> Result<String, Error> {
     match schema {
-        Schema::Json => Ok(".json".into()),
+        Schema::Json => Ok("json".into()),
         _ => return Err(Error::Unexpected)
     }
 }
