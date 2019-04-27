@@ -15,7 +15,7 @@ use serde_json::Number;
 /// [`serde_json::Value`](https://docs.serde.rs/serde_json/value/enum.Value.html)
 /// [`serde_json::json`](https://docs.serde.rs/serde_json/macro.json.html)
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Null,
     Bool(bool),

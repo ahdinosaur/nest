@@ -4,8 +4,6 @@ use std::iter::FromIterator;
 
 use serde_json as json;
 
-use crate::error::Error;
-
 /// The mapping of your data structures with the filesystem (files and directories).
 ///
 /// A `Schema` is a tree with `Schema::Directory` as branches and files (e.g. `Schema::Json`) as leaves.

@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
-use std::convert::{From, Into};
-use std::fs::{File, read_to_string};
+use std::convert::{Into};
+use std::fs::{read_to_string};
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 use std::io;
-use std::io::Read;
 use std::io::Write;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
@@ -41,8 +40,8 @@ use crate::value::Value;
 ///
 /// let root = "/home/dinosaur/example";
 /// let schema = json!({
-///     "hello" {
-///         "world": "json
+///     "hello": {
+///         "world": "json"
 ///     }
 /// }).into();
 /// let store = Store::new(root, schema);
@@ -51,24 +50,30 @@ use crate::value::Value;
 /// Now we can use this store to get and set values.
 ///
 /// ```rust, no_run
+/// # use nest::{Store, Error, Value};
+/// # let store = Store::new("./", serde_json::json!({}).into());
 /// let value = store.get(&["hello", "world", "nest"])?;
-/// assert_eq!(value, Value::String("🐣".into());
+/// assert_eq!(value, Value::String("🐣".into()));
 ///
-/// let next_value = "🐥";
-/// store.set(&["hello", "world", "nest", next_value])?;
+/// let next_value = Value::String("🐥".into());
+/// store.set(&["hello", "world", "nest"], &next_value)?;
+/// # Ok::<(), Error>(())
 /// ```
 ///
 /// If we mostly care about data starting with a given path within the Nest, we can create a
 /// sub-Store that contains our path as a new root.
 ///
 /// ```rust, no_run
+/// # use nest::{Store, Error, Value};
+/// # let store = Store::new("./", serde_json::json!({}).into());
 /// let sub = store.sub(&["hello", "world"])?;
 ///
 /// let value = store.get(&["nest"])?;
-/// assert_eq!(value, Value::String("🐥".into());
+/// assert_eq!(value, Value::String("🐥".into()));
 ///
-/// let next_value = "🐔";
-/// store.set(&["nest", next_value])?;
+/// let next_value = Value::String("🐔".into());
+/// store.set(&["nest"], &next_value)?;
+/// # Ok::<(), Error>(())
 /// ```
 ///
 
