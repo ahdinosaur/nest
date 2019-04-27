@@ -126,7 +126,7 @@ impl Store {
 
                 Ok(Store {
                     schema: (*schema).clone(),
-                    root: nested_path.join("/").into(),
+                    root: self.root.join(nested_path.join(&MAIN_SEPARATOR.to_string())),
                 })
             }
         }
