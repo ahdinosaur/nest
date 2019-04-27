@@ -6,6 +6,7 @@ use std::io;
 use std::io::Write;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
+use log::{info, debug};
 use serde_json as json;
 
 use crate::error::Error;
@@ -87,18 +88,25 @@ impl Store {
     pub fn new<A> (root: A, schema: Schema) -> Self
         where A: Into<PathBuf>
     {
+        let root = root.into();
+        info!("nest::Store::new({:?}, {:?})", root, schema);
+
         // TODO validate schema
         Store {
-            root: root.into(),
+            root,
             schema,
         }
     }
 
     /// Get the `Value` at the given `path`.
     pub fn get (&self, path: &[&str]) -> Result<Value, Error> {
+        info!("nest::Store#get({:?})", path);
+
         let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFoundInSchema) }
         let (extra_path, schema) = traversed.unwrap();
+
+        debug!("extra_path: {:?}", extra_path);
 
         let depth = path.len() - extra_path.len();
         let value = get_in_schema(schema, &self.root, path, depth)?;
@@ -108,6 +116,8 @@ impl Store {
 
     /// Set the `Value` at the given `path`.
     pub fn set (&self, path: &[&str], value: &Value) -> Result<(), Error> {
+        info!("nest::Store#set({:?}), {:?}", path, value);
+
         let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFoundInSchema) }
         let (extra_path, schema) = traversed.unwrap();
@@ -162,11 +172,19 @@ fn traverse_schema <'a, 'b, 'c> (path: &'a [&'b str], schema: &'c Schema) -> Opt
 }
 
 fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> Result<Value, Error> {
+    debug!("get_in_schema({:?}, {:?}, {:?}, {:?})", schema, root, path, depth);
+
     // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
-        map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
-            let value = get_in_schema(schema, root, path, depth + 1)?;
+        map.into_iter().try_for_each(|(key, next_schema)| -> Result<(), Error> {
+            let next_path = {
+                let mut vec = Vec::new();
+                vec.extend(path.iter().cloned());
+                vec.push(key);
+                vec
+            };
+            let value = get_in_schema(next_schema, root, &next_path, depth + 1)?;
             next_map.insert(key.clone(), value);
             Ok(())
         })?;
@@ -174,9 +192,10 @@ fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> 
     }
 
     // otherwise schema is a file
+    println!("{:?}", schema);
     let schema_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
-    let file_path: PathBuf = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
+    let file_path = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
 
     // read the file as a value
     let data = read_file(&file_path)?;
