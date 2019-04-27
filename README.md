@@ -15,8 +15,8 @@
     alt="Crates.io version" />
   </a>
   <!-- Build Status -->
-  <a href="https://travis-ci.org/rustasync/nest">
-    <img src="https://img.shields.io/travis/rustasync/nest.svg?style=flat-square"
+  <a href="https://travis-ci.org/ahdinosaur/nest">
+    <img src="https://img.shields.io/travis/ahdinosaur/nest.svg?style=flat-square"
       alt="Build Status" />
   </a>
   <!-- Downloads -->
@@ -35,7 +35,7 @@
 
 ### Conduct
 
-The Nest project adheres to the [Contributor Covenant Code of Conduct](https://github.com/rustasync/tide/blob/master/.github/CODE_OF_CONDUCT.md). This describes the minimum behavior expected from all contributors.
+The Nest project adheres to the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/1/4/code-of-conduct). This describes the minimum behavior expected from all contributors.
 
 ## License
 
