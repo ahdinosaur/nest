@@ -52,3 +52,59 @@ fn get_simple () {
 
     temp.close().unwrap();
 }
+
+#[test]
+fn set_simple () {
+    common::setup();
+
+    let temp = assert_fs::TempDir::new().unwrap();
+    let file = temp
+        .child("hello/world.json")
+        .write_str(r#"
+            {
+                "nest": 0
+            }
+        "#)
+        .unwrap();
+
+    let schema = json!({ "hello": { "world": "json" } }).into();
+    let store = nest::Store::new(temp.path(), schema);
+
+    assert_eq!(
+        store.set(&["hello", "world", "nest"], &json!(1).into()).unwrap(),
+        (),
+    );
+    assert_eq!(
+        store.get(&["hello", "world", "nest"]).unwrap(),
+        json!(1).into(),
+    );
+
+    assert_eq!(
+        store.set(&["hello", "world"], &json!({ "nest": 2 }).into()).unwrap(),
+        (),
+    );
+    assert_eq!(
+        store.get(&["hello", "world"]).unwrap(),
+        json!({ "nest": 2 }).into(),
+    );
+
+    assert_eq!(
+        store.set(&["hello"], &json!({ "world": { "nest": 3 } }).into()).unwrap(),
+        (),
+    );
+    assert_eq!(
+        store.get(&["hello"]).unwrap(),
+        json!({ "world": { "nest": 3 } }).into(),
+    );
+
+    assert_eq!(
+        store.set(&[], &json!({ "hello": { "world": { "nest": 4 } } }).into()).unwrap(),
+        ()
+    );
+    assert_eq!(
+        store.get(&[]).unwrap(),
+        json!({ "hello": { "world": { "nest": 4 } } }).into(),
+    );
+
+    temp.close().unwrap();
+}

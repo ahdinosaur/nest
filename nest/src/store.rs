@@ -177,14 +177,14 @@ fn get_in_schema (schema: &Schema, root: &Path, path: &[&str], depth: usize) -> 
     // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
-        map.into_iter().try_for_each(|(key, next_schema)| -> Result<(), Error> {
-            let next_path = {
+        map.into_iter().try_for_each(|(key, nested_schema)| -> Result<(), Error> {
+            let nested_path = {
                 let mut vec = Vec::new();
                 vec.extend(path.iter().cloned());
                 vec.push(key);
                 vec
             };
-            let value = get_in_schema(next_schema, root, &next_path, depth + 1)?;
+            let value = get_in_schema(nested_schema, root, &nested_path, depth + 1)?;
             next_map.insert(key.clone(), value);
             Ok(())
         })?;
@@ -210,9 +210,15 @@ fn set_in_schema (schema: &Schema, root: &Path, path: &[&str], value: &Value, de
     // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         if let Value::Object(object) = value {
-            return map.into_iter().try_for_each(|(key, schema)| -> Result<(), Error> {
+            return map.into_iter().try_for_each(|(key, nested_schema)| -> Result<(), Error> {
+                let nested_path = {
+                    let mut vec = Vec::new();
+                    vec.extend(path.iter().cloned());
+                    vec.push(key);
+                    vec
+                };
                 if let Some(nested_value) = object.get(key) {
-                    set_in_schema(schema, root, path, nested_value, depth + 1)?;
+                    set_in_schema(nested_schema, root, &nested_path, nested_value, depth + 1)?;
                 }
                 Ok(())
             })

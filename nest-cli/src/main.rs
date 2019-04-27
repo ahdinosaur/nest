@@ -76,14 +76,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.command {
         Command::Get { path } => {
-            let path: Vec<&str> = path.split('/').collect();
+            let path = parse_path(&path);
             let value = store.get(&path)?;
             let value_json: json::Value = value.into();
             let value_string = json::to_string_pretty(&value_json)?;
             println!("{}", value_string);
         },
         Command::Set { path, value } => {
-            let path: Vec<&str> = path.split('/').collect();
+            let path = parse_path(&path);
             let value_str: String = match value {
                 Some(value_string) => value_string,
                 None => {
@@ -101,4 +101,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
   Ok(())
+}
+
+fn parse_path (path: &String) -> Vec<&str> {
+    if path != "" {
+        path.split('/').collect()
+    } else {
+        Vec::new()
+    }
 }
