@@ -85,6 +85,41 @@ nest get 'hello'
 # }
 ```
 
+### Usage
+
+```txt
+Use your filesystem as a nested data store!
+
+USAGE:
+    nest [FLAGS] [OPTIONS] <SUBCOMMAND>
+
+FLAGS:
+    -h, --help         
+            Prints help information
+
+    -P, --pretty       
+            Enable pretty printing
+
+    -V, --version      
+            Prints version information
+
+    -v, --verbosity    
+            Pass many times for more log output
+            
+            By default, it'll only report errors. Passing `-v` one time also prints warnings, `-vv` enables info
+            logging, `-vvv` debug, and `-vvvv` trace.
+
+OPTIONS:
+        --root <root>    
+            
+
+
+SUBCOMMANDS:
+    get     Get value from Nest.
+    help    Prints this message or the help of the given subcommand(s)
+    set     Set value in Nest.
+```
+
 ## Contributing
 
 ### Conduct
