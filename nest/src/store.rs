@@ -14,18 +14,18 @@ use crate::schema::Schema;
 use crate::value::Value;
 
 pub struct Store {
+    root: PathBuf,
     schema: Schema,
-    root: PathBuf
 }
 
 impl Store {
-    pub fn new<A> (schema: Schema, root: A) -> Self
+    pub fn new<A> (root: A, schema: Schema) -> Self
         where A: Into<PathBuf>
     {
         // TODO validate schema
         Store {
-            schema,
             root: root.into(),
+            schema,
         }
     }
 
