@@ -3,6 +3,9 @@ use std::fmt;
 
 use serde_json as json;
 
+/// A specialized [`Error`] type for this crate's operations.
+///
+/// [`Error`]:  https://doc.rust-lang.org/stable/std/error/trait.Error.html
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),

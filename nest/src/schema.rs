@@ -6,6 +6,16 @@ use serde_json as json;
 
 use crate::error::Error;
 
+/// The mapping of your data structures with the filesystem (files and directories).
+///
+/// A `Schema` is a tree with `Schema::Directory` as branches and files (e.g. `Schema::Json`) as leaves.
+///
+/// `Schema` also implements `From<serde_json::Value>`, so you can use the [`serde_json::json`] macro
+/// to conveniently create schemas.
+///
+/// [`serde_json::json`](https://docs.serde.rs/serde_json/macro.json.html)
+///
+
 #[derive(Debug, Clone)]
 pub enum Schema {
     Directory(BTreeMap<String, Schema>),

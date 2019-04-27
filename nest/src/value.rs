@@ -5,6 +5,16 @@ use std::iter::FromIterator;
 use serde_json as json;
 use serde_json::Number;
 
+/// Represents any valid Nest value.
+///
+/// Similar to [`serde_json::Value`].
+///
+/// `Value` also implements `From<serde_json::Value>`, so you can use the [`serde_json::json`] macro
+/// to conveniently create Nest values.
+///
+/// [`serde_json::Value`](https://docs.serde.rs/serde_json/value/enum.Value.html)
+/// [`serde_json::json`](https://docs.serde.rs/serde_json/macro.json.html)
+
 #[derive(Debug, Clone)]
 pub enum Value {
     Null,

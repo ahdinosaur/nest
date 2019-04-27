@@ -13,12 +13,72 @@ use crate::error::Error;
 use crate::schema::Schema;
 use crate::value::Value;
 
+/// The entry point for a Nest data store.
+///
+/// Stores start with a *root* path and use a *schema* to map the topology of your data structures
+/// with the filesystem (files and directories).
+///
+/// # Example
+///
+/// Given a filesystem setup like:
+///
+/// ```txt
+/// $ tree /home/dinosaur/example
+/// /home/dinosaur/example
+/// └── hello
+///     └── world.json
+/// # cat /home/dinosaur/example/hello/world.json
+/// {
+///   "nest": "🐣"
+/// }
+/// ```
+///
+/// We can create a simple Nest data store with:
+///
+/// ```rust, no_run
+/// use serde_json::json;
+/// use nest::{Store, Value};
+///
+/// let root = "/home/dinosaur/example";
+/// let schema = json!({
+///     "hello" {
+///         "world": "json
+///     }
+/// }).into();
+/// let store = Store::new(root, schema);
+/// ```
+///
+/// Now we can use this store to get and set values.
+///
+/// ```rust, no_run
+/// let value = store.get(&["hello", "world", "nest"])?;
+/// assert_eq!(value, Value::String("🐣".into());
+///
+/// let next_value = "🐥";
+/// store.set(&["hello", "world", "nest", next_value])?;
+/// ```
+///
+/// If we mostly care about data starting with a given path within the Nest, we can create a
+/// sub-Store that contains our path as a new root.
+///
+/// ```rust, no_run
+/// let sub = store.sub(&["hello", "world"])?;
+///
+/// let value = store.get(&["nest"])?;
+/// assert_eq!(value, Value::String("🐥".into());
+///
+/// let next_value = "🐔";
+/// store.set(&["nest", next_value])?;
+/// ```
+///
+
 pub struct Store {
     root: PathBuf,
     schema: Schema,
 }
 
 impl Store {
+    /// Create a `Store` from `root` path and `schema` mapping.
     pub fn new<A> (root: A, schema: Schema) -> Self
         where A: Into<PathBuf>
     {
@@ -29,6 +89,7 @@ impl Store {
         }
     }
 
+    /// Get the `Value` at the given `path`.
     pub fn get (&self, path: &[&str]) -> Result<Value, Error> {
         let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFoundInSchema) }
@@ -40,6 +101,7 @@ impl Store {
         Ok(value)
     }
 
+    /// Set the `Value` at the given `path`.
     pub fn set (&self, path: &[&str], value: &Value) -> Result<(), Error> {
         let traversed = traverse_schema(path, &self.schema);
         if traversed.is_none() { return Err(Error::NotFoundInSchema) }
@@ -49,6 +111,7 @@ impl Store {
         set_in_schema(schema, &self.root, path, value, depth)
     }
 
+    /// Return a sub-`Store` at the given `path`.
     pub fn sub (&self, path: &[&str]) -> Result<Store, Error> {
         match traverse_schema(path, &self.schema) {
             None => Err(Error::NotFoundInSchema),
