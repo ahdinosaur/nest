@@ -1,12 +1,6 @@
-// TODO test .get when path is empty
-// TODO test .get when path is 
-// TODO test .set when path is deeper than existing value
-
 extern crate assert_fs;
-extern crate predicates;
 
 use assert_fs::prelude::*;
-use predicates::prelude::*;
 use serde_json::json;
 
 use nest;
@@ -18,7 +12,7 @@ fn get_simple () {
     common::setup();
 
     let temp = assert_fs::TempDir::new().unwrap();
-    let file = temp
+    temp
         .child("hello/world.json")
         .write_str(r#"
             {
@@ -58,7 +52,7 @@ fn set_simple () {
     common::setup();
 
     let temp = assert_fs::TempDir::new().unwrap();
-    let file = temp
+    temp
         .child("hello/world.json")
         .write_str(r#"
             {
@@ -107,4 +101,58 @@ fn set_simple () {
     );
 
     temp.close().unwrap();
+}
+
+#[test]
+fn set_from_empty () {
+    common::setup();
+
+    let schema: nest::Schema = json!({ "hello": { "world": "json" } }).into();
+    let expected = r#"{
+  "nest": true
+}"#;
+
+    let temp_0 = assert_fs::TempDir::new().unwrap();
+    let store = nest::Store::new(temp_0.path(), schema.clone());
+    assert_eq!(
+        store.set(&["hello", "world", "nest"], &json!(true).into()).unwrap(),
+        (),
+    );
+    temp_0
+        .child("hello/world.json")
+        .assert(expected);
+    temp_0.close().unwrap();
+
+    let temp_1 = assert_fs::TempDir::new().unwrap();
+    let store = nest::Store::new(temp_1.path(), schema.clone());
+    assert_eq!(
+        store.set(&["hello", "world"], &json!({ "nest": true }).into()).unwrap(),
+        (),
+    );
+    temp_1
+        .child("hello/world.json")
+        .assert(expected);
+    temp_1.close().unwrap();
+
+    let temp_2 = assert_fs::TempDir::new().unwrap();
+    let store = nest::Store::new(temp_2.path(), schema.clone());
+    assert_eq!(
+        store.set(&["hello"], &json!({ "world": { "nest": true } }).into()).unwrap(),
+        (),
+    );
+    temp_2
+        .child("hello/world.json")
+        .assert(expected);
+    temp_2.close().unwrap();
+
+    let temp_3 = assert_fs::TempDir::new().unwrap();
+    let store = nest::Store::new(temp_3.path(), schema.clone());
+    assert_eq!(
+        store.set(&[], &json!({ "hello": { "world": { "nest": true } } }).into()).unwrap(),
+        (),
+    );
+    temp_3
+        .child("hello/world.json")
+        .assert(expected);
+    temp_3.close().unwrap();
 }

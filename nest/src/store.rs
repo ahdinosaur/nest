@@ -7,6 +7,7 @@ use std::io::Write;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
 use log::{info, debug};
+use mkdirp::mkdirp;
 use serde_json as json;
 
 use crate::error::Error;
@@ -231,6 +232,9 @@ fn set_in_schema (schema: &Schema, root: &Path, path: &[&str], value: &Value, de
     let schema_path = path.get(0..depth).unwrap();
     let file_extension = schema_file_extension(schema)?;
     let file_path: PathBuf = root.join(schema_path.join(&MAIN_SEPARATOR.to_string())).with_extension(file_extension);
+    
+    // ensure parent directory exists
+    mkdirp(&file_path.parent().unwrap())?;
 
     // if file exists
     let file_value = if file_path.is_file() {
@@ -268,23 +272,15 @@ fn get_in_value (path: &[&str], value: Value) -> Result<Value, Error> {
 
 fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Result<Value, Error> {
     if path.len() == 0 { return Ok(next_value_at_path); }
+
     match value {
         Value::Object(map) => {
-            let next_key = path.get(0).unwrap().clone();
-            let next_path = path.get(1..path.len()).unwrap();
-            let mut next_map = BTreeMap::new();
-            map.into_iter().try_for_each(|(key, nested_value)| -> Result<(), Error> {
-                let next_nested_value = if key == next_key {
-                    set_in_value(nested_value, next_path, next_value_at_path.clone())?
-                } else {
-                    nested_value
-                };
-                next_map.insert(key.clone(), next_nested_value);
-                Ok(())
-            })?;
+            let next_key = path.get(0).unwrap().to_string();
+            let mut next_map = map.clone();
+            next_map.insert(next_key, next_value_at_path);
             Ok(Value::Object(next_map))
         },
-        _ => Ok(value)
+        _ => set_in_value(Value::Object(BTreeMap::new()), path, next_value_at_path),
     }
 }
 
