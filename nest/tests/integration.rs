@@ -108,9 +108,11 @@ fn set_from_empty () {
     common::setup();
 
     let schema: nest::Schema = json!({ "hello": { "world": "json" } }).into();
-    let expected = r#"{
+    let expected =
+r#"{
   "nest": true
-}"#;
+}
+"#;
 
     let temp_0 = assert_fs::TempDir::new().unwrap();
     let store = nest::Store::new(temp_0.path(), schema.clone());

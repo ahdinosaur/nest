@@ -305,7 +305,8 @@ fn schema_value_to_data (schema: &Schema, value: &Value) -> Result<String, Error
     match schema {
         Schema::Json => {
             let json_value: json::Value = value.clone().into();
-            let json_string = json::to_string_pretty(&json_value)?;
+            let mut json_string = json::to_string_pretty(&json_value)?;
+            json_string.push('\n');
             Ok(json_string)
         },
         _ => return Err(Error::Unexpected)
