@@ -1,8 +1,8 @@
-use nest::{Store, Error, Value};
+use nest::{Error, Store, Value};
 
 use serde_json::json;
 
-fn main () -> Result<(), Error> {
+fn main() -> Result<(), Error> {
     // what is the root path to your data store?
     let root = "./example-data";
     // describe how your data store will map to the filesystem
@@ -12,7 +12,8 @@ fn main () -> Result<(), Error> {
             // refers to a file: ./example-data/hello/world.json
             "world": "json"
         }
-    }).into();
+    })
+    .into();
 
     let store = Store::new(root, schema);
 

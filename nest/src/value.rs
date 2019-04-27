@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::convert::{From};
+use std::convert::From;
 use std::iter::FromIterator;
 
 use serde_json as json;
@@ -32,8 +32,14 @@ impl From<json::Value> for Value {
             json::Value::Bool(bool) => Value::Bool(bool),
             json::Value::Number(number) => Value::Number(number),
             json::Value::String(string) => Value::String(string),
-            json::Value::Array(array) => Value::Array(Vec::from_iter(array.into_iter().map(Self::from))),
-            json::Value::Object(object) => Value::Object(BTreeMap::from_iter(object.into_iter().map(|(key, value)| (key, Self::from(value)))))
+            json::Value::Array(array) => {
+                Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            json::Value::Object(object) => Value::Object(BTreeMap::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
         }
     }
 }
@@ -45,9 +51,14 @@ impl From<Value> for json::Value {
             Value::Bool(bool) => json::Value::Bool(bool),
             Value::Number(number) => json::Value::Number(number),
             Value::String(string) => json::Value::String(string),
-            Value::Array(array) => json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from))),
-            Value::Object(object) => json::Value::Object(json::map::Map::from_iter(object.into_iter().map(|(key, value)| (key, Self::from(value)))))
+            Value::Array(array) => {
+                json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            Value::Object(object) => json::Value::Object(json::map::Map::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
         }
     }
 }
-

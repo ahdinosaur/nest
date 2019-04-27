@@ -1,5 +1,5 @@
-use std::io;
 use std::fmt;
+use std::io;
 
 use serde_json as json;
 
@@ -13,7 +13,7 @@ pub enum Error {
     NotFoundInSchema,
     NotFoundInValue,
     ExpectedObjectValueForDirectorySchema,
-    Unexpected
+    Unexpected,
 }
 
 impl fmt::Display for Error {
@@ -23,7 +23,9 @@ impl fmt::Display for Error {
             Error::Json(ref err) => err.fmt(f),
             Error::NotFoundInSchema => write!(f, "Path not found in schema"),
             Error::NotFoundInValue => write!(f, "Path not found in value"),
-            Error::ExpectedObjectValueForDirectorySchema => write!(f, "Expected object Value for Schema::Directory"),
+            Error::ExpectedObjectValueForDirectorySchema => {
+                write!(f, "Expected object Value for Schema::Directory")
+            }
             Error::Unexpected => write!(f, "Unexpected (programmer) error"),
         }
     }
@@ -36,7 +38,9 @@ impl std::error::Error for Error {
             Error::Json(ref err) => err.description(),
             Error::NotFoundInSchema => "not found in schema",
             Error::NotFoundInValue => "not found in value",
-            Error::ExpectedObjectValueForDirectorySchema => "expected object value for directory schema",
+            Error::ExpectedObjectValueForDirectorySchema => {
+                "expected object value for directory schema"
+            }
             Error::Unexpected => "programmer error",
         }
     }
@@ -53,4 +57,3 @@ impl From<json::error::Error> for Error {
         Error::Json(err)
     }
 }
-

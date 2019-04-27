@@ -1,5 +1,5 @@
-use std::convert::{From};
 use std::collections::BTreeMap;
+use std::convert::From;
 use std::iter::FromIterator;
 
 use serde_json as json;
@@ -17,7 +17,7 @@ use serde_json as json;
 #[derive(Debug, Clone)]
 pub enum Schema {
     Directory(BTreeMap<String, Schema>),
-    Json
+    Json,
 }
 
 // TODO implement From for Result<Schema>
@@ -28,12 +28,14 @@ pub enum Schema {
 impl From<json::Value> for Schema {
     fn from(value: json::Value) -> Schema {
         match value {
-            json::Value::Object(object) => Schema::Directory(BTreeMap::from_iter(object.into_iter().map(|(key, value)| (key, Self::from(value))))),
-            json::Value::String(string) => {
-                match string.as_str() {
-                    "json" => Schema::Json,
-                    _ => panic!("Invalid string in json Schema: {}", string),
-                }
+            json::Value::Object(object) => Schema::Directory(BTreeMap::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
+            json::Value::String(string) => match string.as_str() {
+                "json" => Schema::Json,
+                _ => panic!("Invalid string in json Schema: {}", string),
             },
             _ => panic!("Invalid value in json Schema: {}", value),
         }
