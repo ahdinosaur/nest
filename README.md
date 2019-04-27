@@ -65,7 +65,29 @@ cargo install nest-cli
 
 ### Example
 
-Given [`example-data`](./example-data), containing a [`.nest.json`](./example-data/nest.json):
+Given [`example-data`](./example-data):
+
+```shell
+tree -a example-data
+# example-data
+# ├── hello
+# │   └── world.json
+# └── .nest.json
+#
+# 1 directory, 2 files
+
+cat example-data/.nest.json
+# {
+#   "hello": {
+#     "world": "json"
+#   }
+# }
+
+cat example-data/hello/world.json
+# {
+#   "nest": "🐣"
+# }
+```
 
 ```shell
 cd example-data
