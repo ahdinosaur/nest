@@ -356,6 +356,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "nest"
 version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mkdirp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "nest"
+version = "0.3.6"
 dependencies = [
  "assert_fs 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -364,17 +375,6 @@ dependencies = [
  "mkdirp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "nest"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "mkdirp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
