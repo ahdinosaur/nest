@@ -51,8 +51,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = match args.root {
         Some(path) => path,
         None => env::var("NEST_ROOT")
-            .map(|s| s.into())
-            .or(env::current_dir())?,
+            .map(std::convert::Into::into)
+            .or_else(|_| env::current_dir())?,
     };
 
     debug!("root: {:#?}", root);
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_path(path: &String) -> Vec<&str> {
+fn parse_path(path: &str) -> Vec<&str> {
     if path != "" {
         path.split('/').collect()
     } else {

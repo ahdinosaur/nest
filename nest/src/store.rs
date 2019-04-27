@@ -136,7 +136,7 @@ impl Store {
             None => Err(Error::NotFoundInSchema),
             Some((extra_path, schema)) => {
                 let depth = path.len() - extra_path.len();
-                let nested_path = path.get(0..depth).unwrap().to_vec();
+                let nested_path = &path[0..depth].to_vec();
 
                 Ok(Store {
                     schema: (*schema).clone(),
@@ -168,12 +168,12 @@ fn traverse_schema<'a, 'b, 'c>(
 ) -> Option<(&'a [&'b str], &'c Schema)> {
     match schema {
         Schema::Directory(map) => {
-            if path.len() == 0 {
+            if path.is_empty() {
                 return Some((path, schema));
             }
-            let key = path.get(0).unwrap();
-            let next_path = path.get(1..path.len()).unwrap();
-            match map.get(*key) {
+            let key = path[0];
+            let next_path = &path[1..path.len()];
+            match map.get(key) {
                 Some(next_schema) => traverse_schema(next_path, next_schema),
                 None => None,
             }
@@ -196,7 +196,7 @@ fn get_in_schema(
     // if schema is a directory, it refers to a nested value
     if let Schema::Directory(map) = schema {
         let mut next_map = BTreeMap::new();
-        map.into_iter()
+        map.iter()
             .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
                 let nested_path = {
                     let mut vec = Vec::new();
@@ -212,7 +212,7 @@ fn get_in_schema(
     }
 
     // otherwise schema is a file
-    let schema_path = path.get(0..depth).unwrap();
+    let schema_path = &path[0..depth];
     let file_extension = schema_file_extension(schema)?;
     let file_path = root
         .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
@@ -223,7 +223,7 @@ fn get_in_schema(
     let file_value = schema_data_to_value(schema, &data)?;
 
     // get value within file value at path
-    let value_path = path.get(depth..path.len()).unwrap();
+    let value_path = &path[depth..path.len()];
     get_in_value(value_path, file_value)
 }
 
@@ -238,7 +238,7 @@ fn set_in_schema(
     if let Schema::Directory(map) = schema {
         if let Value::Object(object) = value {
             return map
-                .into_iter()
+                .iter()
                 .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
                     let nested_path = {
                         let mut vec = Vec::new();
@@ -257,7 +257,7 @@ fn set_in_schema(
     }
 
     // otherwise schema is a file
-    let schema_path = path.get(0..depth).unwrap();
+    let schema_path = &path[0..depth];
     let file_extension = schema_file_extension(schema)?;
     let file_path: PathBuf = root
         .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
@@ -277,7 +277,7 @@ fn set_in_schema(
     };
 
     // set value at path
-    let value_path = path.get(depth..path.len()).unwrap();
+    let value_path = &path[depth..path.len()];
     let next_file_value = set_in_value(file_value, value_path, value.clone())?;
 
     // write new value to file
@@ -288,14 +288,14 @@ fn set_in_schema(
 }
 
 fn get_in_value(path: &[&str], value: Value) -> Result<Value, Error> {
-    if path.len() == 0 {
+    if path.is_empty() {
         return Ok(value);
     }
     match value {
         Value::Object(object) => {
-            let key = path.get(0).unwrap();
-            let next_path = path.get(1..path.len()).unwrap();
-            let next_value = object.get(*key).ok_or(Error::NotFoundInValue)?;
+            let key = path[0];
+            let next_path = &path[1..path.len()];
+            let next_value = object.get(key).ok_or(Error::NotFoundInValue)?;
             get_in_value(next_path, next_value.clone())
         }
         _ => Ok(value),
@@ -303,13 +303,13 @@ fn get_in_value(path: &[&str], value: Value) -> Result<Value, Error> {
 }
 
 fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Result<Value, Error> {
-    if path.len() == 0 {
+    if path.is_empty() {
         return Ok(next_value_at_path);
     }
 
     match value {
         Value::Object(map) => {
-            let next_key = path.get(0).unwrap().to_string();
+            let next_key = path[0].to_string();
             let mut next_map = map.clone();
             next_map.insert(next_key, next_value_at_path);
             Ok(Value::Object(next_map))
@@ -321,17 +321,17 @@ fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Resul
 fn schema_file_extension(schema: &Schema) -> Result<String, Error> {
     match schema {
         Schema::Json => Ok("json".into()),
-        _ => return Err(Error::Unexpected),
+        _ => Err(Error::Unexpected),
     }
 }
 
-fn schema_data_to_value(schema: &Schema, data: &String) -> Result<Value, Error> {
+fn schema_data_to_value(schema: &Schema, data: &str) -> Result<Value, Error> {
     match schema {
         Schema::Json => {
             let json_value: json::Value = json::from_str(&data)?;
             Ok(json_value.into())
         }
-        _ => return Err(Error::Unexpected),
+        _ => Err(Error::Unexpected),
     }
 }
 
@@ -343,6 +343,6 @@ fn schema_value_to_data(schema: &Schema, value: &Value) -> Result<String, Error>
             json_string.push('\n');
             Ok(json_string)
         }
-        _ => return Err(Error::Unexpected),
+        _ => Err(Error::Unexpected),
     }
 }
