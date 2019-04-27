@@ -6,32 +6,14 @@
   </strong>
 </div>
 
-<br />
+## Modules
 
-<div align="center">
-  <!-- Crates version -->
-  <a href="https://crates.io/crates/nest">
-    <img src="https://img.shields.io/crates/v/nest.svg?style=flat-square"
-    alt="Crates.io version" />
-  </a>
-  <!-- Build Status -->
-  <a href="https://travis-ci.org/ahdinosaur/nest">
-    <img src="https://img.shields.io/travis/ahdinosaur/nest.svg?style=flat-square"
-      alt="Build Status" />
-  </a>
-  <!-- Downloads -->
-  <a href="https://crates.io/crates/nest">
-    <img src="https://img.shields.io/crates/d/nest.svg?style=flat-square"
-      alt="Download" />
-  </a>
-  <!-- docs.rs docs -->
-  <a href="https://docs.rs/nest">
-    <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
-      alt="docs.rs docs" />
-  </a>
-</div>
+- `nest`: [![Crates.io version](https://img.shields.io/crates/v/nest.svg?style=flat-square) ](https://crates.io/crates/nest)  [ ![Build Status](https://img.shields.io/travis/ahdinosaur/nest.svg?style=flat-square) ](https://travis-ci.org/ahdinosaur/nest)  [ ![Download](https://img.shields.io/crates/d/nest.svg?style=flat-square) ](https://crates.io/crates/nest)  [![docs.rs docs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/nest)
+- `nest-cli`: [![Crates.io version](https://img.shields.io/crates/v/nest-cli.svg?style=flat-square) ](https://crates.io/crates/nest-cli)  [ ![Build Status](https://img.shields.io/travis/ahdinosaur/nest.svg?style=flat-square) ](https://travis-ci.org/ahdinosaur/nest)  [ ![Download](https://img.shields.io/crates/d/nest-cli.svg?style=flat-square) ](https://crates.io/crates/nest-cli)  [![docs.rs docs](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/nest-cli)
 
-## Example
+## `nest`
+
+### Example
 
 ```rust
 use nest::{Store, Error, Value};
@@ -73,6 +55,35 @@ fn main () -> Result<(), Error> {
 }
 ```
 
+## `nest-cli`
+
+### Install
+
+```shell
+cargo install nest-cli
+```
+
+### Example
+
+Given [`example-data`](./example-data), containing a [`.nest.json`](./example-data/nest.json):
+
+```shell
+cd example-data
+
+nest get 'hello/world'
+# {
+#   "nest": "🐣"
+# }
+
+nest set 'hello/world/nest' '"🐥"'
+
+nest get 'hello'
+# {
+#   "world": {
+#     "nest": "🐣"
+#   }
+# }
+```
 
 ## Contributing
 
