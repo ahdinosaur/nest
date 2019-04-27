@@ -80,7 +80,7 @@ nest set 'hello/world/nest' '"🐥"'
 nest get 'hello'
 # {
 #   "world": {
-#     "nest": "🐣"
+#     "nest": "🐥"
 #   }
 # }
 ```
