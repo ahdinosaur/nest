@@ -3,6 +3,3 @@ members = [
     "nest",
     "nest-cli",
 ]
-
-[replace]
-"nest:0.3.0" = { path = "nest" }
