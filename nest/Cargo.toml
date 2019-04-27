@@ -21,6 +21,8 @@ predicates = "1.0"
 version-sync = "0.8"
 
 [package.metadata.release]
+no-dev-version = true
+pre-release-hook = ["cargo", "test", "-p", "nest"]
 pre-release-replacements = [
   { file="src/lib.rs", search="https://docs.rs/nest/[a-z0-9\\.-]+", replace="https://docs.rs/nest/{{version}}" }
 ]

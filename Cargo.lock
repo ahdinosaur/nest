@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "nest"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "assert_fs 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "atomicwrites 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
