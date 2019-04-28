@@ -1,14 +1,10 @@
 use std::collections::BTreeMap;
 use std::convert::Into;
-use std::fs::read_to_string;
 use std::io;
-use std::io::Write;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 
-use atomicwrites::{AtomicFile, OverwriteBehavior};
 use log::{debug, info};
 use mkdirp::mkdirp;
-use serde_json as json;
 
 use crate::error::Error;
 use crate::schema::Schema;
@@ -149,19 +145,6 @@ impl Store {
     }
 }
 
-fn read_file(path: &Path) -> Result<String, io::Error> {
-    read_to_string(path)
-}
-
-fn write_file(path: &Path, data: String) -> Result<(), io::Error> {
-    let atomic_file = AtomicFile::new(path, OverwriteBehavior::AllowOverwrite);
-    match atomic_file.write(|file| file.write_all(data.as_bytes())) {
-        Ok(()) => Ok(()),
-        Err(atomicwrites::Error::Internal(io_error)) => Err(io_error),
-        Err(atomicwrites::Error::User(io_error)) => Err(io_error),
-    }
-}
-
 fn traverse_schema<'a, 'b, 'c>(
     path: &'a [&'b str],
     schema: &'c Schema,
@@ -193,38 +176,36 @@ fn get_in_schema(
         schema, root, path, depth
     );
 
-    // if schema is a directory, it refers to a nested value
-    if let Schema::Directory(map) = schema {
-        let mut next_map = BTreeMap::new();
-        map.iter()
-            .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
-                let nested_path = {
-                    let mut vec = Vec::new();
-                    vec.extend(path.iter().cloned());
-                    vec.push(key);
-                    vec
-                };
-                let value = get_in_schema(nested_schema, root, &nested_path, depth + 1)?;
-                next_map.insert(key.clone(), value);
-                Ok(())
-            })?;
-        return Ok(Value::Object(next_map));
+    match schema {
+        // if schema is a directory, it refers to a nested value
+        Schema::Directory(map) => {
+            let mut next_map = BTreeMap::new();
+            map.iter()
+                .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
+                    let nested_path = {
+                        let mut vec = Vec::new();
+                        vec.extend(path.iter().cloned());
+                        vec.push(key);
+                        vec
+                    };
+                    let value = get_in_schema(nested_schema, root, &nested_path, depth + 1)?;
+                    next_map.insert(key.clone(), value);
+                    Ok(())
+                })?;
+            Ok(Value::Object(next_map))
+        }
+        Schema::Source(source) => {
+            // otherwise schema is a source (file)
+            let source_path: PathBuf = root.join(path[0..depth].join(&MAIN_SEPARATOR.to_string()));
+
+            // read the file as a value
+            let source_value = source.read(&source_path)?;
+
+            // get value within source (file) value at path
+            let value_path = &path[depth..path.len()];
+            get_in_value(value_path, source_value)
+        }
     }
-
-    // otherwise schema is a file
-    let schema_path = &path[0..depth];
-    let file_extension = schema.file_extension()?;
-    let file_path = root
-        .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
-        .with_extension(file_extension);
-
-    // read the file as a value
-    let data = read_file(&file_path)?;
-    let file_value = schema.string_to_value(&data)?;
-
-    // get value within file value at path
-    let value_path = &path[depth..path.len()];
-    get_in_value(value_path, file_value)
 }
 
 fn set_in_schema(
@@ -234,57 +215,64 @@ fn set_in_schema(
     value: &Value,
     depth: usize,
 ) -> Result<(), Error> {
-    // if schema is a directory, it refers to a nested value
-    if let Schema::Directory(map) = schema {
-        if let Value::Object(object) = value {
-            return map
-                .iter()
-                .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
-                    let nested_path = {
-                        let mut vec = Vec::new();
-                        vec.extend(path.iter().cloned());
-                        vec.push(key);
-                        vec
-                    };
-                    if let Some(nested_value) = object.get(key) {
-                        set_in_schema(nested_schema, root, &nested_path, nested_value, depth + 1)?;
+    match schema {
+        // if schema is a directory, it refers to a nested value
+        Schema::Directory(map) => {
+            if let Value::Object(object) = value {
+                return map
+                    .iter()
+                    .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
+                        let nested_path = {
+                            let mut vec = Vec::new();
+                            vec.extend(path.iter().cloned());
+                            vec.push(key);
+                            vec
+                        };
+                        if let Some(nested_value) = object.get(key) {
+                            set_in_schema(
+                                nested_schema,
+                                root,
+                                &nested_path,
+                                nested_value,
+                                depth + 1,
+                            )?;
+                        }
+                        Ok(())
+                    });
+            } else {
+                Err(Error::ExpectedObjectValueForDirectorySchema)
+            }
+        }
+        // otherwise schema is a source (file)
+        Schema::Source(source) => {
+            let source_path: PathBuf = root.join(path[0..depth].join(&MAIN_SEPARATOR.to_string()));
+
+            // ensure parent directory exists
+            mkdirp(&source_path.parent().unwrap())?;
+
+            let source_value = match source.read(&source_path) {
+                Err(Error::Io(err)) => {
+                    match err.kind() {
+                        io::ErrorKind::NotFound => {
+                            // otherwise default to an empty object
+                            Ok(Value::Object(BTreeMap::new()))
+                        }
+                        _ => Err(Error::Io(err)),
                     }
-                    Ok(())
-                });
-        } else {
-            return Err(Error::ExpectedObjectValueForDirectorySchema);
+                }
+                result => result,
+            }?;
+
+            // set value at path
+            let value_path = &path[depth..path.len()];
+            let next_value = set_in_value(source_value, value_path, value.clone())?;
+
+            // write new value to source (file)
+            source.write(&source_path, &next_value)?;
+
+            Ok(())
         }
     }
-
-    // otherwise schema is a file
-    let schema_path = &path[0..depth];
-    let file_extension = schema.file_extension()?;
-    let file_path: PathBuf = root
-        .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
-        .with_extension(file_extension);
-
-    // ensure parent directory exists
-    mkdirp(&file_path.parent().unwrap())?;
-
-    // if file exists
-    let file_value = if file_path.is_file() {
-        // read the file as a value
-        let data = read_file(&file_path)?;
-        schema.string_to_value(&data)?
-    } else {
-        // otherwise default to an empty object
-        Value::Object(BTreeMap::new())
-    };
-
-    // set value at path
-    let value_path = &path[depth..path.len()];
-    let next_file_value = set_in_value(file_value, value_path, value.clone())?;
-
-    // write new value to file
-    let data = schema.value_to_string(&next_file_value)?;
-    write_file(&file_path, data)?;
-
-    Ok(())
 }
 
 fn get_in_value(path: &[&str], value: Value) -> Result<Value, Error> {
