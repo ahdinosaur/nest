@@ -19,7 +19,9 @@ use serde_json::Number;
 pub enum Value {
     Null,
     Bool(bool),
-    Number(Number),
+    Int(i64),
+    Uint(u64),
+    Float(f64),
     String(String),
     Array(Vec<Value>),
     Object(BTreeMap<String, Value>),
@@ -30,7 +32,15 @@ impl From<json::Value> for Value {
         match value {
             json::Value::Null => Value::Null,
             json::Value::Bool(bool) => Value::Bool(bool),
-            json::Value::Number(number) => Value::Number(number),
+            json::Value::Number(number) => {
+                if number.is_u64() {
+                    Value::Uint(number.as_u64().unwrap())
+                } else if number.is_i64() {
+                    Value::Int(number.as_i64().unwrap())
+                } else {
+                    Value::Float(number.as_f64().unwrap())
+                }
+            }
             json::Value::String(string) => Value::String(string),
             json::Value::Array(array) => {
                 Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
@@ -49,7 +59,11 @@ impl From<Value> for json::Value {
         match value {
             Value::Null => json::Value::Null,
             Value::Bool(bool) => json::Value::Bool(bool),
-            Value::Number(number) => json::Value::Number(number),
+            Value::Int(int) => json::Value::Number(int.into()),
+            Value::Uint(uint) => json::Value::Number(uint.into()),
+            // will panic if float is NaN or Infinity
+            // TODO, figure out how to handle this. maybe implement From<Option<Value>> for json::Value ?
+            Value::Float(float) => json::Value::Number(json::Number::from_f64(float).unwrap()),
             Value::String(string) => json::Value::String(string),
             Value::Array(array) => {
                 json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
