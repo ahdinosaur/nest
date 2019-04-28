@@ -213,14 +213,14 @@ fn get_in_schema(
 
     // otherwise schema is a file
     let schema_path = &path[0..depth];
-    let file_extension = schema_file_extension(schema)?;
+    let file_extension = schema.file_extension()?;
     let file_path = root
         .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
         .with_extension(file_extension);
 
     // read the file as a value
     let data = read_file(&file_path)?;
-    let file_value = schema_data_to_value(schema, &data)?;
+    let file_value = schema.string_to_value(&data)?;
 
     // get value within file value at path
     let value_path = &path[depth..path.len()];
@@ -258,7 +258,7 @@ fn set_in_schema(
 
     // otherwise schema is a file
     let schema_path = &path[0..depth];
-    let file_extension = schema_file_extension(schema)?;
+    let file_extension = schema.file_extension()?;
     let file_path: PathBuf = root
         .join(schema_path.join(&MAIN_SEPARATOR.to_string()))
         .with_extension(file_extension);
@@ -270,7 +270,7 @@ fn set_in_schema(
     let file_value = if file_path.is_file() {
         // read the file as a value
         let data = read_file(&file_path)?;
-        schema_data_to_value(schema, &data)?
+        schema.string_to_value(&data)?
     } else {
         // otherwise default to an empty object
         Value::Object(BTreeMap::new())
@@ -281,7 +281,7 @@ fn set_in_schema(
     let next_file_value = set_in_value(file_value, value_path, value.clone())?;
 
     // write new value to file
-    let data = schema_value_to_data(schema, &next_file_value)?;
+    let data = schema.value_to_string(&next_file_value)?;
     write_file(&file_path, data)?;
 
     Ok(())
@@ -315,34 +315,5 @@ fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Resul
             Ok(Value::Object(next_map))
         }
         _ => set_in_value(Value::Object(BTreeMap::new()), path, next_value_at_path),
-    }
-}
-
-fn schema_file_extension(schema: &Schema) -> Result<String, Error> {
-    match schema {
-        Schema::Json => Ok("json".into()),
-        _ => Err(Error::Unexpected),
-    }
-}
-
-fn schema_data_to_value(schema: &Schema, data: &str) -> Result<Value, Error> {
-    match schema {
-        Schema::Json => {
-            let json_value: json::Value = json::from_str(&data)?;
-            Ok(json_value.into())
-        }
-        _ => Err(Error::Unexpected),
-    }
-}
-
-fn schema_value_to_data(schema: &Schema, value: &Value) -> Result<String, Error> {
-    match schema {
-        Schema::Json => {
-            let json_value: json::Value = value.clone().into();
-            let mut json_string = json::to_string_pretty(&json_value)?;
-            json_string.push('\n');
-            Ok(json_string)
-        }
-        _ => Err(Error::Unexpected),
     }
 }

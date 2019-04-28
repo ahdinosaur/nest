@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 use std::convert::From;
 use std::iter::FromIterator;
 
+use serde_hjson as hjson;
 use serde_json as json;
-use serde_json::Number;
 
 /// Represents any valid Nest value.
 ///
@@ -69,6 +69,48 @@ impl From<Value> for json::Value {
                 json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
             }
             Value::Object(object) => json::Value::Object(json::map::Map::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
+        }
+    }
+}
+
+impl From<hjson::Value> for Value {
+    fn from(value: hjson::Value) -> Value {
+        match value {
+            hjson::Value::Null => Value::Null,
+            hjson::Value::Bool(bool) => Value::Bool(bool),
+            hjson::Value::I64(int) => Value::Int(int),
+            hjson::Value::U64(uint) => Value::Uint(uint),
+            hjson::Value::F64(float) => Value::Float(float),
+            hjson::Value::String(string) => Value::String(string),
+            hjson::Value::Array(array) => {
+                Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            hjson::Value::Object(object) => Value::Object(BTreeMap::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
+        }
+    }
+}
+
+impl From<Value> for hjson::Value {
+    fn from(value: Value) -> hjson::Value {
+        match value {
+            Value::Null => hjson::Value::Null,
+            Value::Bool(bool) => hjson::Value::Bool(bool),
+            Value::Int(int) => hjson::Value::I64(int),
+            Value::Uint(uint) => hjson::Value::U64(uint),
+            Value::Float(float) => hjson::Value::F64(float),
+            Value::String(string) => hjson::Value::String(string),
+            Value::Array(array) => {
+                hjson::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            Value::Object(object) => hjson::Value::Object(hjson::Map::from_iter(
                 object
                     .into_iter()
                     .map(|(key, value)| (key, Self::from(value))),

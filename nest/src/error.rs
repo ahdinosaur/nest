@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io;
 
+use serde_hjson as hjson;
 use serde_json as json;
 
 /// A specialized [`Error`] type for this crate's operations.
@@ -10,6 +11,7 @@ use serde_json as json;
 pub enum Error {
     Io(io::Error),
     Json(json::error::Error),
+    Hjson(hjson::Error),
     NotFoundInSchema,
     NotFoundInValue,
     ExpectedObjectValueForDirectorySchema,
@@ -21,6 +23,7 @@ impl fmt::Display for Error {
         match *self {
             Error::Io(ref err) => err.fmt(f),
             Error::Json(ref err) => err.fmt(f),
+            Error::Hjson(ref err) => err.fmt(f),
             Error::NotFoundInSchema => write!(f, "Path not found in schema"),
             Error::NotFoundInValue => write!(f, "Path not found in value"),
             Error::ExpectedObjectValueForDirectorySchema => {
@@ -36,6 +39,7 @@ impl std::error::Error for Error {
         match *self {
             Error::Io(ref err) => err.description(),
             Error::Json(ref err) => err.description(),
+            Error::Hjson(ref err) => err.description(),
             Error::NotFoundInSchema => "not found in schema",
             Error::NotFoundInValue => "not found in value",
             Error::ExpectedObjectValueForDirectorySchema => {
@@ -55,5 +59,11 @@ impl From<io::Error> for Error {
 impl From<json::error::Error> for Error {
     fn from(err: json::error::Error) -> Error {
         Error::Json(err)
+    }
+}
+
+impl From<hjson::error::Error> for Error {
+    fn from(err: hjson::error::Error) -> Error {
+        Error::Hjson(err)
     }
 }
