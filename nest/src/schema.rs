@@ -7,6 +7,7 @@ use std::iter::FromIterator;
 use std::path::Path;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
+use objekt;
 use serde_hjson as hjson;
 use serde_json as json;
 
@@ -33,16 +34,20 @@ pub enum Schema {
     Source(Box<dyn SourceFormat>),
 }
 
-pub trait SourceFormat: SourceFormatClone + std::fmt::Debug {
+pub trait SourceFormat: objekt::Clone + std::fmt::Debug {
     fn read(&self, path: &Path) -> Result<Value, Error>;
     fn write(&self, path: &Path, value: &Value) -> Result<(), Error>;
 }
 
-pub trait FileFormat: FileFormatClone + std::fmt::Debug {
+objekt::clone_trait_object!(SourceFormat);
+
+pub trait FileFormat: objekt::Clone + std::fmt::Debug {
     fn extension(&self) -> String;
     fn deserialize(&self, string: &str) -> Result<Value, Error>;
     fn serialize(&self, value: &Value) -> Result<String, Error>;
 }
+
+objekt::clone_trait_object!(FileFormat);
 
 impl<A: 'static> SourceFormat for A
 where
@@ -145,46 +150,5 @@ fn write_file(path: &Path, data: String) -> Result<(), io::Error> {
         Ok(()) => Ok(()),
         Err(atomicwrites::Error::Internal(io_error)) => Err(io_error),
         Err(atomicwrites::Error::User(io_error)) => Err(io_error),
-    }
-}
-
-/* what... */
-// https://stackoverflow.com/a/30353928
-
-pub trait SourceFormatClone {
-    fn clone_box(&self) -> Box<SourceFormat>;
-}
-
-impl<T> SourceFormatClone for T
-where
-    T: 'static + SourceFormat + Clone,
-{
-    fn clone_box(&self) -> Box<SourceFormat> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<SourceFormat> {
-    fn clone(&self) -> Box<SourceFormat> {
-        self.clone_box()
-    }
-}
-
-pub trait FileFormatClone {
-    fn clone_box(&self) -> Box<FileFormat>;
-}
-
-impl<T> FileFormatClone for T
-where
-    T: 'static + FileFormat + Clone,
-{
-    fn clone_box(&self) -> Box<FileFormat> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<FileFormat> {
-    fn clone(&self) -> Box<FileFormat> {
-        self.clone_box()
     }
 }
