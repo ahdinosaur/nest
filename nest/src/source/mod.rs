@@ -10,9 +10,11 @@ use crate::value::Value;
 
 mod hjson;
 mod json;
+mod yaml;
 
 pub use hjson::Hjson;
 pub use json::Json;
+pub use yaml::Yaml;
 
 pub trait Source: objekt::Clone + std::fmt::Debug {
     fn read(&self, path: &Path) -> Result<Value, Error>;

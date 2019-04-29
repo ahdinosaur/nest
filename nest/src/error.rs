@@ -3,6 +3,7 @@ use std::io;
 
 use serde_hjson as hjson;
 use serde_json as json;
+use serde_yaml as yaml;
 
 /// A specialized [`Error`] type for this crate's operations.
 ///
@@ -12,6 +13,7 @@ pub enum Error {
     Io(io::Error),
     Json(json::error::Error),
     Hjson(hjson::Error),
+    Yaml(yaml::Error),
     NotFoundInSchema,
     NotFoundInValue,
     ExpectedObjectValueForDirectorySchema,
@@ -24,6 +26,7 @@ impl fmt::Display for Error {
             Error::Io(ref err) => err.fmt(f),
             Error::Json(ref err) => err.fmt(f),
             Error::Hjson(ref err) => err.fmt(f),
+            Error::Yaml(ref err) => err.fmt(f),
             Error::NotFoundInSchema => write!(f, "Path not found in schema"),
             Error::NotFoundInValue => write!(f, "Path not found in value"),
             Error::ExpectedObjectValueForDirectorySchema => {
@@ -40,6 +43,7 @@ impl std::error::Error for Error {
             Error::Io(ref err) => err.description(),
             Error::Json(ref err) => err.description(),
             Error::Hjson(ref err) => err.description(),
+            Error::Yaml(ref err) => err.description(),
             Error::NotFoundInSchema => "not found in schema",
             Error::NotFoundInValue => "not found in value",
             Error::ExpectedObjectValueForDirectorySchema => {
@@ -56,6 +60,8 @@ impl From<io::Error> for Error {
     }
 }
 
+// TODO is there a general way to handle source errors?
+
 impl From<json::error::Error> for Error {
     fn from(err: json::error::Error) -> Error {
         Error::Json(err)
@@ -65,5 +71,11 @@ impl From<json::error::Error> for Error {
 impl From<hjson::error::Error> for Error {
     fn from(err: hjson::error::Error) -> Error {
         Error::Hjson(err)
+    }
+}
+
+impl From<yaml::Error> for Error {
+    fn from(err: yaml::Error) -> Error {
+        Error::Yaml(err)
     }
 }

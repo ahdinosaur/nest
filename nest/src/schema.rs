@@ -43,6 +43,7 @@ impl From<Value> for Schema {
             Value::String(string) => match string.as_str() {
                 "json" => Schema::Source(Box::new(source::Json {})),
                 "hjson" => Schema::Source(Box::new(source::Hjson {})),
+                "yaml" => Schema::Source(Box::new(source::Yaml {})),
                 _ => panic!("Invalid string in json Schema: {:?}", string),
             },
             _ => panic!("Invalid value in json Schema: {:?}", value),
