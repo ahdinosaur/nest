@@ -4,6 +4,7 @@ use std::io;
 use serde_hjson as hjson;
 use serde_json as json;
 use serde_yaml as yaml;
+use toml;
 
 /// A specialized [`Error`] type for this crate's operations.
 ///
@@ -13,6 +14,8 @@ pub enum Error {
     Io(io::Error),
     Json(json::error::Error),
     Hjson(hjson::Error),
+    TomlDe(toml::de::Error),
+    TomlSer(toml::ser::Error),
     Yaml(yaml::Error),
     NotFoundInSchema,
     NotFoundInValue,
@@ -26,6 +29,8 @@ impl fmt::Display for Error {
             Error::Io(ref err) => err.fmt(f),
             Error::Json(ref err) => err.fmt(f),
             Error::Hjson(ref err) => err.fmt(f),
+            Error::TomlDe(ref err) => err.fmt(f),
+            Error::TomlSer(ref err) => err.fmt(f),
             Error::Yaml(ref err) => err.fmt(f),
             Error::NotFoundInSchema => write!(f, "Path not found in schema"),
             Error::NotFoundInValue => write!(f, "Path not found in value"),
@@ -43,6 +48,8 @@ impl std::error::Error for Error {
             Error::Io(ref err) => err.description(),
             Error::Json(ref err) => err.description(),
             Error::Hjson(ref err) => err.description(),
+            Error::TomlDe(ref err) => err.description(),
+            Error::TomlSer(ref err) => err.description(),
             Error::Yaml(ref err) => err.description(),
             Error::NotFoundInSchema => "not found in schema",
             Error::NotFoundInValue => "not found in value",
@@ -71,6 +78,18 @@ impl From<json::error::Error> for Error {
 impl From<hjson::error::Error> for Error {
     fn from(err: hjson::error::Error) -> Error {
         Error::Hjson(err)
+    }
+}
+
+impl From<toml::de::Error> for Error {
+    fn from(err: toml::de::Error) -> Error {
+        Error::TomlDe(err)
+    }
+}
+
+impl From<toml::ser::Error> for Error {
+    fn from(err: toml::ser::Error) -> Error {
+        Error::TomlSer(err)
     }
 }
 

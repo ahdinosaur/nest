@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::convert::From;
 use std::iter::FromIterator;
+use std::str::FromStr;
 
 use serde_hjson as hjson;
 use serde_json as json;
@@ -18,14 +19,14 @@ use serde_yaml as yaml;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
-    Null,
+    Null, // maybe no null?
     Bool(bool),
-    Int(i64),
+    Int(i64), // maybe only float as number?
     Uint(u64),
     Float(f64),
     String(String),
     Array(Vec<Value>),
-    Object(BTreeMap<String, Value>),
+    Object(BTreeMap<String, Value>), // maybe use IndexedHashMap to preserve order?
 }
 
 impl From<json::Value> for Value {
@@ -64,7 +65,10 @@ impl From<Value> for json::Value {
             Value::Uint(uint) => json::Value::Number(uint.into()),
             // will panic if float is NaN or Infinity
             // TODO, figure out how to handle this. maybe implement From<Option<Value>> for json::Value ?
-            Value::Float(float) => json::Value::Number(json::Number::from_f64(float).unwrap()),
+            Value::Float(float) => match json::Number::from_f64(float) {
+                Some(number) => json::Value::Number(number),
+                None => panic!(".json source must not have NaN or Infinity numbers"),
+            },
             Value::String(string) => json::Value::String(string),
             Value::Array(array) => {
                 json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
@@ -144,7 +148,7 @@ impl From<yaml::Value> for Value {
                         (key, Self::from(value))
                     } else {
                         // TODO, figure out how to handle this.
-                        panic!("Key in .yaml object (mapping) is not a string.")
+                        panic!(".yaml source may only have string keys in object (mapping)")
                     }
                 }),
             )),
@@ -168,6 +172,50 @@ impl From<Value> for yaml::Value {
                 object
                     .into_iter()
                     .map(|(key, value)| (Self::from(key), Self::from(value))),
+            )),
+        }
+    }
+}
+
+impl From<toml::value::Value> for Value {
+    fn from(value: toml::value::Value) -> Value {
+        match value {
+            toml::value::Value::Boolean(bool) => Value::Bool(bool),
+            toml::value::Value::Integer(int) => Value::Int(int),
+            toml::value::Value::Float(float) => Value::Float(float),
+            toml::value::Value::String(string) => Value::String(string),
+            toml::value::Value::Datetime(datetime) => Value::String(datetime.to_string()),
+            toml::value::Value::Array(array) => {
+                Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            toml::value::Value::Table(object) => Value::Object(BTreeMap::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
+            )),
+        }
+    }
+}
+
+impl From<Value> for toml::value::Value {
+    fn from(value: Value) -> toml::value::Value {
+        match value {
+            Value::Null => panic!(".toml may not have null value"), // TODO oh no.
+            Value::Bool(bool) => toml::value::Value::Boolean(bool),
+            Value::Int(int) => toml::value::Value::Integer(int),
+            Value::Uint(uint) => toml::value::Value::Integer(uint as i64),
+            Value::Float(float) => toml::value::Value::Float(float),
+            Value::String(string) => match toml::value::Datetime::from_str(&string) {
+                Ok(datetime) => toml::value::Value::Datetime(datetime),
+                Err(_) => toml::value::Value::String(string),
+            },
+            Value::Array(array) => {
+                toml::value::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            }
+            Value::Object(object) => toml::value::Value::Table(toml::value::Table::from_iter(
+                object
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from(value))),
             )),
         }
     }
