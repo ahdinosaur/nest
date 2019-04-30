@@ -6,9 +6,21 @@ use serde_json as json;
 use serde_yaml as yaml;
 use toml;
 
+use crate::value::Value;
+
+pub type Result<A, B = Error> = std::result::Result<A, B>;
+
 /// A specialized [`Error`] type for this crate's operations.
 ///
 /// [`Error`]:  https://doc.rust-lang.org/stable/std/error/trait.Error.html
+///
+
+// TODO better errors
+//
+// inspiration:
+// - https://github.com/shepmaster/snafu
+// - https://github.com/Keats/tera/blob/v1/src/errors.rs
+// - https://github.com/Keats/kickstart/blob/master/src/errors.rs#L35-L55
 #[derive(Debug)]
 pub enum Error {
     Io(io::Error),
@@ -20,7 +32,9 @@ pub enum Error {
     NotFoundInSchema,
     NotFoundInValue,
     ExpectedObjectValueForDirectorySchema,
+    InvalidSchema { value: Value },
     Unexpected,
+    __Nonexhaustive,
 }
 
 impl fmt::Display for Error {
@@ -37,7 +51,9 @@ impl fmt::Display for Error {
             Error::ExpectedObjectValueForDirectorySchema => {
                 write!(f, "Expected object Value for Schema::Directory")
             }
+            Error::InvalidSchema { ref value } => write!(f, "Invalid schema value: {:?}", value),
             Error::Unexpected => write!(f, "Unexpected (programmer) error"),
+            _ => unreachable!(),
         }
     }
 }
@@ -56,7 +72,9 @@ impl std::error::Error for Error {
             Error::ExpectedObjectValueForDirectorySchema => {
                 "expected object value for directory schema"
             }
+            Error::InvalidSchema { .. } => "invalid schema",
             Error::Unexpected => "programmer error",
+            _ => unreachable!(),
         }
     }
 }

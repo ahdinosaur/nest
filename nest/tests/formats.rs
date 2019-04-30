@@ -1,5 +1,7 @@
 extern crate assert_fs;
 
+use std::convert::TryInto;
+
 use assert_fs::prelude::*;
 use serde_json::json;
 
@@ -21,7 +23,7 @@ fn hjson() {
     )
     .unwrap();
 
-    let schema = json!({ "hello": { "world": "hjson" } }).into();
+    let schema = json!({ "hello": { "world": "hjson" } }).try_into().unwrap();
     let store = nest::Store::new(temp.path(), schema);
 
     assert_eq!(
@@ -59,7 +61,7 @@ nest: true
     )
     .unwrap();
 
-    let schema = json!({ "hello": { "world": "yaml" } }).into();
+    let schema = json!({ "hello": { "world": "yaml" } }).try_into().unwrap();
     let store = nest::Store::new(temp.path(), schema);
 
     assert_eq!(
@@ -97,7 +99,7 @@ nest = true
     )
     .unwrap();
 
-    let schema = json!({ "hello": { "world": "toml" } }).into();
+    let schema = json!({ "hello": { "world": "toml" } }).try_into().unwrap();
     let store = nest::Store::new(temp.path(), schema);
 
     assert_eq!(

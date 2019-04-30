@@ -34,23 +34,26 @@ use crate::value::Value;
 /// We can create a simple Nest data store with:
 ///
 /// ```rust, no_run
+/// use std::convert::TryInto;
 /// use serde_json::json;
-/// use nest::{Store, Value};
+/// use nest::{Error, Store, Value};
 ///
 /// let root = "/home/dinosaur/example";
 /// let schema = json!({
 ///     "hello": {
 ///         "world": "json"
 ///     }
-/// }).into();
+/// }).try_into()?;
 /// let store = Store::new(root, schema);
+/// # Ok::<(), Error>(())
 /// ```
 ///
 /// Now we can use this store to get and set values.
 ///
 /// ```rust, no_run
+/// # use std::convert::TryInto;
 /// # use nest::{Store, Error, Value};
-/// # let store = Store::new("./", serde_json::json!({}).into());
+/// # let store = Store::new("./", serde_json::json!({}).try_into()?);
 /// let value = store.get(&["hello", "world", "nest"])?;
 /// assert_eq!(value, Value::String("🐣".into()));
 ///
@@ -63,8 +66,9 @@ use crate::value::Value;
 /// sub-Store that contains our path as a new root.
 ///
 /// ```rust, no_run
+/// # use std::convert::TryInto;
 /// # use nest::{Store, Error, Value};
-/// # let store = Store::new("./", serde_json::json!({}).into());
+/// # let store = Store::new("./", serde_json::json!({}).try_into()?);
 /// let sub = store.sub(&["hello", "world"])?;
 ///
 /// let value = store.get(&["nest"])?;

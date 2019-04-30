@@ -1,6 +1,6 @@
 use nest::{Error, Store, Value};
-
 use serde_json::json;
+use std::convert::TryInto;
 
 fn main() -> Result<(), Error> {
     // what is the root path to your data store?
@@ -13,7 +13,7 @@ fn main() -> Result<(), Error> {
             "world": "json"
         }
     })
-    .into();
+    .try_into()?;
 
     let store = Store::new(root, schema);
 

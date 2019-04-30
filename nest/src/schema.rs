@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
-use std::convert::From;
-use std::iter::FromIterator;
+use std::convert::{TryFrom, TryInto};
 
 use serde_json as json;
 
-// use crate::error::Error;
+use crate::error::{Error, Result};
 use crate::source::{self, Source};
 use crate::value::Value;
 
@@ -24,37 +23,43 @@ pub enum Schema {
     Source(Box<dyn Source>),
 }
 
-// TODO implement From for Result<Schema>
-// - https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
-//
-// - https://github.com/rust-lang/rfcs/blob/master/text/1023-rebalancing-coherence.md
-// - https://github.com/rust-lang/rfcs/blob/master/text/2451-re-rebalancing-coherence.md
-// - wait until [re-rebalancing-coherence] feature is stable:
-//     https://github.com/mssun/state-of-rust/blob/master/stable_library_feature.txt
+impl TryFrom<Value> for Schema {
+    type Error = Error;
 
-impl From<Value> for Schema {
-    fn from(value: Value) -> Schema {
+    fn try_from(value: Value) -> Result<Self> {
         match value {
-            Value::Object(object) => Schema::Directory(BTreeMap::from_iter(
+            Value::Object(object) => {
+                let mut map = BTreeMap::new();
                 object
                     .into_iter()
-                    .map(|(key, value)| (key, Self::from(value))),
-            )),
+                    .try_for_each(|(key, value)| -> Result<()> {
+                        let schema = Self::try_from(value)?;
+                        map.insert(key, schema);
+                        Ok(())
+                    })?;
+                Ok(Schema::Directory(map))
+            }
             Value::String(string) => match string.as_str() {
-                "json" => Schema::Source(Box::new(source::Json {})),
-                "hjson" => Schema::Source(Box::new(source::Hjson {})),
-                "toml" => Schema::Source(Box::new(source::Toml {})),
-                "yaml" => Schema::Source(Box::new(source::Yaml {})),
-                _ => panic!("Invalid string in json Schema: {:?}", string),
+                "json" => Ok(Schema::Source(Box::new(source::Json {}))),
+                "hjson" => Ok(Schema::Source(Box::new(source::Hjson {}))),
+                "toml" => Ok(Schema::Source(Box::new(source::Toml {}))),
+                "yaml" => Ok(Schema::Source(Box::new(source::Yaml {}))),
+                _ => Err(Error::InvalidSchema {
+                    value: Value::String(string),
+                }),
             },
-            _ => panic!("Invalid value in json Schema: {:?}", value),
+            _ => Err(Error::InvalidSchema {
+                value: value.clone(),
+            }),
         }
     }
 }
 
-impl From<json::Value> for Schema {
-    fn from(value: json::Value) -> Schema {
+impl TryFrom<json::Value> for Schema {
+    type Error = Error;
+
+    fn try_from(value: json::Value) -> Result<Self> {
         let value: Value = value.into();
-        value.into()
+        value.try_into()
     }
 }

@@ -1,5 +1,7 @@
 extern crate assert_fs;
 
+use std::convert::TryInto;
+
 use assert_fs::prelude::*;
 use serde_json::json;
 
@@ -22,7 +24,7 @@ fn get_simple() {
         )
         .unwrap();
 
-    let schema = json!({ "hello": { "world": "json" } }).into();
+    let schema = json!({ "hello": { "world": "json" } }).try_into().unwrap();
     let store = nest::Store::new(temp.path(), schema);
 
     assert_eq!(
@@ -63,7 +65,7 @@ fn set_simple() {
         )
         .unwrap();
 
-    let schema = json!({ "hello": { "world": "json" } }).into();
+    let schema = json!({ "hello": { "world": "json" } }).try_into().unwrap();
     let store = nest::Store::new(temp.path(), schema);
 
     assert_eq!(
@@ -117,7 +119,7 @@ fn set_simple() {
 fn set_from_empty() {
     common::setup();
 
-    let schema: nest::Schema = json!({ "hello": { "world": "json" } }).into();
+    let schema: nest::Schema = json!({ "hello": { "world": "json" } }).try_into().unwrap();
     let expected = r#"{
   "nest": true
 }
