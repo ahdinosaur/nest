@@ -43,7 +43,7 @@ fn get_simple() {
     );
 
     assert_eq!(
-        store.get(&[]).unwrap(),
+        store.get(&[] as &[&str; 0]).unwrap(),
         json!({ "hello": { "world": { "nest": true } } }).into(),
     );
 
@@ -103,12 +103,15 @@ fn set_simple() {
 
     assert_eq!(
         store
-            .set(&[], &json!({ "hello": { "world": { "nest": 4 } } }).into())
+            .set(
+                &[] as &[&str; 0],
+                &json!({ "hello": { "world": { "nest": 4 } } }).into()
+            )
             .unwrap(),
         ()
     );
     assert_eq!(
-        store.get(&[]).unwrap(),
+        store.get(&[] as &[&str; 0]).unwrap(),
         json!({ "hello": { "world": { "nest": 4 } } }).into(),
     );
 
@@ -163,7 +166,7 @@ fn set_from_empty() {
     assert_eq!(
         store
             .set(
-                &[],
+                &[] as &[&str; 0],
                 &json!({ "hello": { "world": { "nest": true } } }).into()
             )
             .unwrap(),
