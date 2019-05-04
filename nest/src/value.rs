@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
 use std::convert::From;
 use std::iter::FromIterator;
 use std::str::FromStr;
 
+use indexmap::IndexMap;
 use serde_hjson as hjson;
 use serde_json as json;
 use serde_yaml as yaml;
@@ -26,7 +26,7 @@ pub enum Value {
     Float(f64),
     String(String),
     Array(Vec<Value>),
-    Object(BTreeMap<String, Value>), // maybe use IndexedHashMap to preserve order?
+    Object(IndexMap<String, Value>), // maybe use IndexedHashMap to preserve order?
 }
 
 impl From<json::Value> for Value {
@@ -47,7 +47,7 @@ impl From<json::Value> for Value {
             json::Value::Array(array) => {
                 Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
             }
-            json::Value::Object(object) => Value::Object(BTreeMap::from_iter(
+            json::Value::Object(object) => Value::Object(IndexMap::from_iter(
                 object
                     .into_iter()
                     .map(|(key, value)| (key, Self::from(value))),
@@ -94,7 +94,7 @@ impl From<hjson::Value> for Value {
             hjson::Value::Array(array) => {
                 Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
             }
-            hjson::Value::Object(object) => Value::Object(BTreeMap::from_iter(
+            hjson::Value::Object(object) => Value::Object(IndexMap::from_iter(
                 object
                     .into_iter()
                     .map(|(key, value)| (key, Self::from(value))),
@@ -142,7 +142,7 @@ impl From<yaml::Value> for Value {
             yaml::Value::Sequence(sequence) => {
                 Value::Array(Vec::from_iter(sequence.into_iter().map(Self::from)))
             }
-            yaml::Value::Mapping(mapping) => Value::Object(BTreeMap::from_iter(
+            yaml::Value::Mapping(mapping) => Value::Object(IndexMap::from_iter(
                 mapping.into_iter().map(|(key, value)| {
                     if let yaml::Value::String(key) = key {
                         (key, Self::from(value))
@@ -188,7 +188,7 @@ impl From<toml::value::Value> for Value {
             toml::value::Value::Array(array) => {
                 Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
             }
-            toml::value::Value::Table(object) => Value::Object(BTreeMap::from_iter(
+            toml::value::Value::Table(object) => Value::Object(IndexMap::from_iter(
                 object
                     .into_iter()
                     .map(|(key, value)| (key, Self::from(value))),

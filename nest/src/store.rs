@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
 use std::io;
 use std::path;
 
+use indexmap::IndexMap;
 use log::{debug, info};
 use mkdirp::mkdirp;
 
@@ -190,7 +190,7 @@ fn get_in_schema(
     match schema {
         // if schema is a directory, it refers to a nested value
         Schema::Directory(map) => {
-            let mut next_map = BTreeMap::new();
+            let mut next_map = IndexMap::new();
             map.iter()
                 .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
                     let nested_path = path.append(key);
@@ -256,7 +256,7 @@ fn set_in_schema(
                     match err.kind() {
                         io::ErrorKind::NotFound => {
                             // otherwise default to an empty object
-                            Ok(Value::Object(BTreeMap::new()))
+                            Ok(Value::Object(IndexMap::new()))
                         }
                         _ => Err(Error::Io(err)),
                     }
@@ -303,6 +303,6 @@ fn set_in_value(value: Value, path: Path, next_value_at_path: Value) -> Result<V
             next_map.insert(next_key, next_value_at_path);
             Ok(Value::Object(next_map))
         }
-        _ => set_in_value(Value::Object(BTreeMap::new()), path, next_value_at_path),
+        _ => set_in_value(Value::Object(IndexMap::new()), path, next_value_at_path),
     }
 }
