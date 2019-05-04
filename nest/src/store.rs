@@ -1,111 +1,14 @@
 use std::collections::BTreeMap;
-use std::convert::Into;
-use std::fmt;
 use std::io;
-use std::path::{Path, PathBuf, MAIN_SEPARATOR};
+use std::path;
 
 use log::{debug, info};
 use mkdirp::mkdirp;
 
 use crate::error::Error;
+use crate::path::Path;
 use crate::schema::Schema;
 use crate::value::Value;
-
-#[derive(Debug, Clone)]
-pub struct StorePath<'a>(Vec<&'a str>);
-
-impl<'a> StorePath<'a> {
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn first(&self) -> &'a str {
-        self.0.get(0).unwrap()
-    }
-
-    pub fn rest(&self) -> Self {
-        self.skip(1)
-    }
-
-    pub fn take(&self, num: usize) -> Self {
-        StorePath(self.0.get(0..num).unwrap().to_vec())
-    }
-
-    pub fn skip(&self, num: usize) -> Self {
-        StorePath(self.0.get(num..self.len()).unwrap().to_vec())
-    }
-
-    pub fn append(&self, item: &'a str) -> Self {
-        let mut vec = Vec::new();
-        vec.extend(self.0.iter().cloned());
-        vec.push(item);
-        StorePath(vec)
-    }
-
-    pub fn to_path(&self) -> PathBuf {
-        PathBuf::from(self.0.join(&MAIN_SEPARATOR.to_string()))
-    }
-}
-
-/*
-
-// with help from https://deterministic.space/impl-a-trait-for-str-slices-and-slices-of-strs.html
-// but unfortunately can't implement again for String due to "conflicting implementations"
-impl<'a, A> From<A> for StorePath<'a>
-where
-    A: AsRef<[&'a str]>,
-{
-    fn from(path: A) -> StorePath<'a> {
-        StorePath(path.as_ref().to_vec())
-    }
-}
-
-*/
-
-// macro for implementing n-element array functions and operations
-// copied from array source code for AsRef: https://doc.rust-lang.org/src/core/array.rs.html
-macro_rules! store_path_from_array_impls {
-    ($($N:expr)+) => {
-        $(
-            impl<'a, A> From<&'a [A; $N]> for StorePath<'a>
-            where
-                A: AsRef<str> + Clone
-            {
-                fn from(path: &'a [A; $N]) -> StorePath<'a> {
-                    let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
-                    StorePath(path)
-                }
-            }
-        )+
-    }
-}
-
-store_path_from_array_impls! {
-    0  1  2  3  4  5  6  7  8  9
-    10 11 12 13 14 15 16 17 18 19
-    20 21 22 23 24 25 26 27 28 29
-    30 31 32
-}
-
-impl<'a, A> From<&'a Vec<A>> for StorePath<'a>
-where
-    A: AsRef<str>,
-{
-    fn from(path: &'a Vec<A>) -> StorePath<'a> {
-        let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
-        StorePath(path)
-    }
-}
-
-impl<'a> fmt::Display for StorePath<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_path().display())
-    }
-}
 
 /// The entry point for a Nest data store.
 ///
@@ -178,7 +81,7 @@ impl<'a> fmt::Display for StorePath<'a> {
 ///
 
 pub struct Store {
-    root: PathBuf,
+    root: path::PathBuf,
     schema: Schema,
 }
 
@@ -186,7 +89,7 @@ impl Store {
     /// Create a `Store` from `root` path and `schema` mapping.
     pub fn new<A>(root: A, schema: Schema) -> Self
     where
-        A: Into<PathBuf>,
+        A: Into<path::PathBuf>,
     {
         let root = root.into();
         info!("nest::Store::new({:?}, {:?})", root, schema);
@@ -198,7 +101,7 @@ impl Store {
     /// Get the `Value` at the given `path`.
     pub fn get<'a, A>(&self, path: A) -> Result<Value, Error>
     where
-        A: Into<StorePath<'a>>,
+        A: Into<Path<'a>>,
     {
         let path = path.into();
         info!("nest::Store#get({:?})", path);
@@ -220,7 +123,7 @@ impl Store {
     /// Set the `Value` at the given `path`.
     pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<(), Error>
     where
-        A: Into<StorePath<'a>>,
+        A: Into<Path<'a>>,
     {
         let path = path.into();
         info!("nest::Store#set({:?}), {:?}", path, value);
@@ -238,7 +141,7 @@ impl Store {
     /// Return a sub-`Store` at the given `path`.
     pub fn sub<'a, A>(&self, path: A) -> Result<Store, Error>
     where
-        A: Into<StorePath<'a>>,
+        A: Into<Path<'a>>,
     {
         let path = path.into();
         match traverse_schema(path.clone(), &self.schema) {
@@ -256,10 +159,7 @@ impl Store {
     }
 }
 
-fn traverse_schema<'a, 'b>(
-    path: StorePath<'a>,
-    schema: &'b Schema,
-) -> Option<(StorePath<'a>, &'b Schema)> {
+fn traverse_schema<'a, 'b>(path: Path<'a>, schema: &'b Schema) -> Option<(Path<'a>, &'b Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
@@ -278,8 +178,8 @@ fn traverse_schema<'a, 'b>(
 
 fn get_in_schema(
     schema: &Schema,
-    root: &Path,
-    path: StorePath,
+    root: &path::Path,
+    path: Path,
     depth: usize,
 ) -> Result<Value, Error> {
     debug!(
@@ -302,7 +202,7 @@ fn get_in_schema(
         }
         Schema::Source(source) => {
             // otherwise schema is a source (file)
-            let source_path: PathBuf = root.join(path.take(depth).to_path());
+            let source_path: path::PathBuf = root.join(path.take(depth).to_path());
 
             // read the file as a value
             let source_value = source.read(&source_path)?;
@@ -316,8 +216,8 @@ fn get_in_schema(
 
 fn set_in_schema(
     schema: &Schema,
-    root: &Path,
-    path: StorePath,
+    root: &path::Path,
+    path: Path,
     value: &Value,
     depth: usize,
 ) -> Result<(), Error> {
@@ -346,7 +246,7 @@ fn set_in_schema(
         }
         // otherwise schema is a source (file)
         Schema::Source(source) => {
-            let source_path: PathBuf = root.join(path.take(depth).to_path());
+            let source_path: path::PathBuf = root.join(path.take(depth).to_path());
 
             // ensure parent directory exists
             mkdirp(&source_path.parent().unwrap())?;
@@ -376,7 +276,7 @@ fn set_in_schema(
     }
 }
 
-fn get_in_value(path: StorePath, value: Value) -> Result<Value, Error> {
+fn get_in_value(path: Path, value: Value) -> Result<Value, Error> {
     if path.is_empty() {
         return Ok(value);
     }
@@ -391,7 +291,7 @@ fn get_in_value(path: StorePath, value: Value) -> Result<Value, Error> {
     }
 }
 
-fn set_in_value(value: Value, path: StorePath, next_value_at_path: Value) -> Result<Value, Error> {
+fn set_in_value(value: Value, path: Path, next_value_at_path: Value) -> Result<Value, Error> {
     if path.is_empty() {
         return Ok(next_value_at_path);
     }
