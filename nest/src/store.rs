@@ -11,10 +11,10 @@ use crate::error::Error;
 use crate::schema::Schema;
 use crate::value::Value;
 
-#[derive(Debug, Copy, Clone)]
-pub struct StorePath<'a, 'b>(&'a [&'b str]);
+#[derive(Debug, Clone)]
+pub struct StorePath<'a>(Vec<&'a str>);
 
-impl<'a, 'b> StorePath<'a, 'b> {
+impl<'a> StorePath<'a> {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -23,45 +23,85 @@ impl<'a, 'b> StorePath<'a, 'b> {
         self.0.is_empty()
     }
 
-    pub fn first(&self) -> &'b str {
-        self.0[0]
+    pub fn first(&self) -> &'a str {
+        self.0.get(0).unwrap()
     }
 
     pub fn rest(&self) -> Self {
-        StorePath(&self.0[1..self.len()])
+        self.skip(1)
     }
 
     pub fn take(&self, num: usize) -> Self {
-        StorePath(&self.0[0..num])
+        StorePath(self.0.get(0..num).unwrap().to_vec())
     }
 
     pub fn skip(&self, num: usize) -> Self {
-        StorePath(&self.0[num..self.len()])
+        StorePath(self.0.get(num..self.len()).unwrap().to_vec())
     }
 
-    pub fn append(&self, item: &'b str) -> Self {
+    pub fn append(&self, item: &'a str) -> Self {
         let mut vec = Vec::new();
         vec.extend(self.0.iter().cloned());
         vec.push(item);
-        StorePath(&vec.as_slice())
+        StorePath(vec)
     }
 
-    pub fn to_path(&self) -> &'a Path {
-        Path::new(&self.0.join(&MAIN_SEPARATOR.to_string()))
+    pub fn to_path(&self) -> PathBuf {
+        PathBuf::from(self.0.join(&MAIN_SEPARATOR.to_string()))
     }
 }
 
-impl<'a, A> From<&'a [A]> for StorePath<'a, 'a>
+/*
+
+// with help from https://deterministic.space/impl-a-trait-for-str-slices-and-slices-of-strs.html
+// but unfortunately can't implement again for String due to "conflicting implementations"
+impl<'a, A> From<A> for StorePath<'a>
+where
+    A: AsRef<[&'a str]>,
+{
+    fn from(path: A) -> StorePath<'a> {
+        StorePath(path.as_ref().to_vec())
+    }
+}
+
+*/
+
+// macro for implementing n-element array functions and operations
+// copied from array source code for AsRef: https://doc.rust-lang.org/src/core/array.rs.html
+macro_rules! store_path_from_array_impls {
+    ($($N:expr)+) => {
+        $(
+            impl<'a, A> From<&'a [A; $N]> for StorePath<'a>
+            where
+                A: AsRef<str> + Clone
+            {
+                fn from(path: &'a [A; $N]) -> StorePath<'a> {
+                    let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
+                    StorePath(path)
+                }
+            }
+        )+
+    }
+}
+
+store_path_from_array_impls! {
+    0  1  2  3  4  5  6  7  8  9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+}
+
+impl<'a, A> From<&'a Vec<A>> for StorePath<'a>
 where
     A: AsRef<str>,
 {
-    fn from(path: &'a [A]) -> StorePath<'a, 'a> {
+    fn from(path: &'a Vec<A>) -> StorePath<'a> {
         let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
-        StorePath(path.as_slice())
+        StorePath(path)
     }
 }
 
-impl<'a, 'b> fmt::Display for StorePath<'a, 'b> {
+impl<'a> fmt::Display for StorePath<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.to_path().display())
     }
@@ -158,12 +198,12 @@ impl Store {
     /// Get the `Value` at the given `path`.
     pub fn get<'a, A>(&self, path: A) -> Result<Value, Error>
     where
-        A: Into<StorePath<'a, 'a>>,
+        A: Into<StorePath<'a>>,
     {
         let path = path.into();
         info!("nest::Store#get({:?})", path);
 
-        let traversed = traverse_schema(path, &self.schema);
+        let traversed = traverse_schema(path.clone(), &self.schema);
         if traversed.is_none() {
             return Err(Error::NotFoundInSchema);
         }
@@ -172,7 +212,7 @@ impl Store {
         debug!("extra_path: {:?}", extra_path);
 
         let depth = path.len() - extra_path.len();
-        let value = get_in_schema(schema, &self.root, path, depth)?;
+        let value = get_in_schema(schema, &self.root, path.clone(), depth)?;
 
         Ok(value)
     }
@@ -180,28 +220,28 @@ impl Store {
     /// Set the `Value` at the given `path`.
     pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<(), Error>
     where
-        A: Into<StorePath<'a, 'a>>,
+        A: Into<StorePath<'a>>,
     {
         let path = path.into();
         info!("nest::Store#set({:?}), {:?}", path, value);
 
-        let traversed = traverse_schema(path, &self.schema);
+        let traversed = traverse_schema(path.clone(), &self.schema);
         if traversed.is_none() {
             return Err(Error::NotFoundInSchema);
         }
         let (extra_path, schema) = traversed.unwrap();
 
-        let depth = path.len() - extra_path.len();
-        set_in_schema(schema, &self.root, path, value, depth)
+        let depth = path.clone().len() - extra_path.len();
+        set_in_schema(schema, &self.root, path.clone(), value, depth)
     }
 
     /// Return a sub-`Store` at the given `path`.
     pub fn sub<'a, A>(&self, path: A) -> Result<Store, Error>
     where
-        A: Into<StorePath<'a, 'a>>,
+        A: Into<StorePath<'a>>,
     {
         let path = path.into();
-        match traverse_schema(path, &self.schema) {
+        match traverse_schema(path.clone(), &self.schema) {
             None => Err(Error::NotFoundInSchema),
             Some((extra_path, schema)) => {
                 let depth = path.len() - extra_path.len();
@@ -216,10 +256,10 @@ impl Store {
     }
 }
 
-fn traverse_schema<'a, 'b, 'c>(
-    path: StorePath<'a, 'b>,
-    schema: &'c Schema,
-) -> Option<(StorePath<'a, 'b>, &'c Schema)> {
+fn traverse_schema<'a, 'b>(
+    path: StorePath<'a>,
+    schema: &'b Schema,
+) -> Option<(StorePath<'a>, &'b Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
