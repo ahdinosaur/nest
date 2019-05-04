@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::convert::Into;
+use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 
@@ -9,6 +10,62 @@ use mkdirp::mkdirp;
 use crate::error::Error;
 use crate::schema::Schema;
 use crate::value::Value;
+
+#[derive(Debug, Copy, Clone)]
+pub struct StorePath<'a, 'b>(&'a [&'b str]);
+
+impl<'a, 'b> StorePath<'a, 'b> {
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn first(&self) -> &'b str {
+        self.0[0]
+    }
+
+    pub fn rest(&self) -> Self {
+        StorePath(&self.0[1..self.len()])
+    }
+
+    pub fn take(&self, num: usize) -> Self {
+        StorePath(&self.0[0..num])
+    }
+
+    pub fn skip(&self, num: usize) -> Self {
+        StorePath(&self.0[num..self.len()])
+    }
+
+    pub fn append(&self, item: &'b str) -> Self {
+        let mut vec = Vec::new();
+        vec.extend(self.0.iter().cloned());
+        vec.push(item);
+        StorePath(&vec.as_slice())
+    }
+
+    pub fn to_path(&self) -> &'a Path {
+        Path::new(&self.0.join(&MAIN_SEPARATOR.to_string()))
+    }
+}
+
+impl<'a, A> From<&'a [A]> for StorePath<'a, 'a>
+where
+    A: AsRef<str>,
+{
+    fn from(path: &'a [A]) -> StorePath<'a, 'a> {
+        let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
+        StorePath(path.as_slice())
+    }
+}
+
+impl<'a, 'b> fmt::Display for StorePath<'a, 'b> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_path().display())
+    }
+}
 
 /// The entry point for a Nest data store.
 ///
@@ -99,7 +156,11 @@ impl Store {
     }
 
     /// Get the `Value` at the given `path`.
-    pub fn get(&self, path: &[&str]) -> Result<Value, Error> {
+    pub fn get<'a, A>(&self, path: A) -> Result<Value, Error>
+    where
+        A: Into<StorePath<'a, 'a>>,
+    {
+        let path = path.into();
         info!("nest::Store#get({:?})", path);
 
         let traversed = traverse_schema(path, &self.schema);
@@ -117,7 +178,11 @@ impl Store {
     }
 
     /// Set the `Value` at the given `path`.
-    pub fn set(&self, path: &[&str], value: &Value) -> Result<(), Error> {
+    pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<(), Error>
+    where
+        A: Into<StorePath<'a, 'a>>,
+    {
+        let path = path.into();
         info!("nest::Store#set({:?}), {:?}", path, value);
 
         let traversed = traverse_schema(path, &self.schema);
@@ -131,18 +196,20 @@ impl Store {
     }
 
     /// Return a sub-`Store` at the given `path`.
-    pub fn sub(&self, path: &[&str]) -> Result<Store, Error> {
+    pub fn sub<'a, A>(&self, path: A) -> Result<Store, Error>
+    where
+        A: Into<StorePath<'a, 'a>>,
+    {
+        let path = path.into();
         match traverse_schema(path, &self.schema) {
             None => Err(Error::NotFoundInSchema),
             Some((extra_path, schema)) => {
                 let depth = path.len() - extra_path.len();
-                let nested_path = &path[0..depth].to_vec();
+                let nested_path = path.take(depth);
 
                 Ok(Store {
                     schema: (*schema).clone(),
-                    root: self
-                        .root
-                        .join(nested_path.join(&MAIN_SEPARATOR.to_string())),
+                    root: self.root.join(nested_path.to_path()),
                 })
             }
         }
@@ -150,16 +217,16 @@ impl Store {
 }
 
 fn traverse_schema<'a, 'b, 'c>(
-    path: &'a [&'b str],
+    path: StorePath<'a, 'b>,
     schema: &'c Schema,
-) -> Option<(&'a [&'b str], &'c Schema)> {
+) -> Option<(StorePath<'a, 'b>, &'c Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
                 return Some((path, schema));
             }
-            let key = path[0];
-            let next_path = &path[1..path.len()];
+            let key = path.first();
+            let next_path = path.rest();
             match map.get(key) {
                 Some(next_schema) => traverse_schema(next_path, next_schema),
                 None => None,
@@ -172,7 +239,7 @@ fn traverse_schema<'a, 'b, 'c>(
 fn get_in_schema(
     schema: &Schema,
     root: &Path,
-    path: &[&str],
+    path: StorePath,
     depth: usize,
 ) -> Result<Value, Error> {
     debug!(
@@ -186,13 +253,8 @@ fn get_in_schema(
             let mut next_map = BTreeMap::new();
             map.iter()
                 .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
-                    let nested_path = {
-                        let mut vec = Vec::new();
-                        vec.extend(path.iter().cloned());
-                        vec.push(key);
-                        vec
-                    };
-                    let value = get_in_schema(nested_schema, root, &nested_path, depth + 1)?;
+                    let nested_path = path.append(key);
+                    let value = get_in_schema(nested_schema, root, nested_path, depth + 1)?;
                     next_map.insert(key.clone(), value);
                     Ok(())
                 })?;
@@ -200,13 +262,13 @@ fn get_in_schema(
         }
         Schema::Source(source) => {
             // otherwise schema is a source (file)
-            let source_path: PathBuf = root.join(path[0..depth].join(&MAIN_SEPARATOR.to_string()));
+            let source_path: PathBuf = root.join(path.take(depth).to_path());
 
             // read the file as a value
             let source_value = source.read(&source_path)?;
 
             // get value within source (file) value at path
-            let value_path = &path[depth..path.len()];
+            let value_path = path.skip(depth);
             get_in_value(value_path, source_value)
         }
     }
@@ -215,7 +277,7 @@ fn get_in_schema(
 fn set_in_schema(
     schema: &Schema,
     root: &Path,
-    path: &[&str],
+    path: StorePath,
     value: &Value,
     depth: usize,
 ) -> Result<(), Error> {
@@ -226,17 +288,12 @@ fn set_in_schema(
                 return map
                     .iter()
                     .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
-                        let nested_path = {
-                            let mut vec = Vec::new();
-                            vec.extend(path.iter().cloned());
-                            vec.push(key);
-                            vec
-                        };
+                        let nested_path = path.append(key);
                         if let Some(nested_value) = object.get(key) {
                             set_in_schema(
                                 nested_schema,
                                 root,
-                                &nested_path,
+                                nested_path,
                                 nested_value,
                                 depth + 1,
                             )?;
@@ -249,7 +306,7 @@ fn set_in_schema(
         }
         // otherwise schema is a source (file)
         Schema::Source(source) => {
-            let source_path: PathBuf = root.join(path[0..depth].join(&MAIN_SEPARATOR.to_string()));
+            let source_path: PathBuf = root.join(path.take(depth).to_path());
 
             // ensure parent directory exists
             mkdirp(&source_path.parent().unwrap())?;
@@ -268,7 +325,7 @@ fn set_in_schema(
             }?;
 
             // set value at path
-            let value_path = &path[depth..path.len()];
+            let value_path = path.skip(depth);
             let next_value = set_in_value(source_value, value_path, value.clone())?;
 
             // write new value to source (file)
@@ -279,14 +336,14 @@ fn set_in_schema(
     }
 }
 
-fn get_in_value(path: &[&str], value: Value) -> Result<Value, Error> {
+fn get_in_value(path: StorePath, value: Value) -> Result<Value, Error> {
     if path.is_empty() {
         return Ok(value);
     }
     match value {
         Value::Object(object) => {
-            let key = path[0];
-            let next_path = &path[1..path.len()];
+            let key = path.first();
+            let next_path = path.rest();
             let next_value = object.get(key).ok_or(Error::NotFoundInValue)?;
             get_in_value(next_path, next_value.clone())
         }
@@ -294,14 +351,14 @@ fn get_in_value(path: &[&str], value: Value) -> Result<Value, Error> {
     }
 }
 
-fn set_in_value(value: Value, path: &[&str], next_value_at_path: Value) -> Result<Value, Error> {
+fn set_in_value(value: Value, path: StorePath, next_value_at_path: Value) -> Result<Value, Error> {
     if path.is_empty() {
         return Ok(next_value_at_path);
     }
 
     match value {
         Value::Object(map) => {
-            let next_key = path[0].to_string();
+            let next_key = path.first().to_string();
             let mut next_map = map.clone();
             next_map.insert(next_key, next_value_at_path);
             Ok(Value::Object(next_map))
