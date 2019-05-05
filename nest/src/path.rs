@@ -2,9 +2,9 @@ use std::fmt;
 use std::path;
 
 #[derive(Debug, Clone)]
-pub struct Path<'a>(Vec<&'a str>);
+pub struct Path(Vec<String>);
 
-impl<'a> Path<'a> {
+impl Path {
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -13,7 +13,7 @@ impl<'a> Path<'a> {
         self.0.is_empty()
     }
 
-    pub fn first(&self) -> &'a str {
+    pub fn first(&self) -> &String {
         self.0.get(0).unwrap()
     }
 
@@ -29,10 +29,10 @@ impl<'a> Path<'a> {
         Path(self.0.get(num..self.len()).unwrap().to_vec())
     }
 
-    pub fn append(&self, item: &'a str) -> Self {
+    pub fn append(&self, item: &String) -> Self {
         let mut vec = Vec::new();
         vec.extend(self.0.iter().cloned());
-        vec.push(item);
+        vec.push(item.clone());
         Path(vec)
     }
 
@@ -43,6 +43,7 @@ impl<'a> Path<'a> {
 
 /*
 
+// STALE:
 // with help from https://deterministic.space/impl-a-trait-for-str-slices-and-slices-of-strs.html
 // but unfortunately can't implement again for String due to "conflicting implementations"
 impl<'a, A> From<A> for Path<'a>
@@ -61,12 +62,12 @@ where
 macro_rules! store_path_from_array_impls {
     ($($N:expr)+) => {
         $(
-            impl<'a, A> From<&'a [A; $N]> for Path<'a>
+            impl<A> From<&[A; $N]> for Path
             where
-                A: AsRef<str> + Clone
+                A: Into<String> + Clone
             {
-                fn from(path: &'a [A; $N]) -> Path<'a> {
-                    let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
+                fn from(path: &[A; $N]) -> Path {
+                    let path: Vec<String> = path.into_iter().cloned().map(|a| a.into()).collect();
                     Path(path)
                 }
             }
@@ -81,17 +82,17 @@ store_path_from_array_impls! {
     30 31 32
 }
 
-impl<'a, A> From<&'a Vec<A>> for Path<'a>
+impl<A> From<&Vec<A>> for Path
 where
-    A: AsRef<str>,
+    A: Into<String> + Clone,
 {
-    fn from(path: &'a Vec<A>) -> Path<'a> {
-        let path: Vec<&str> = path.into_iter().map(|a| a.as_ref()).collect();
+    fn from(path: &Vec<A>) -> Path {
+        let path: Vec<String> = path.into_iter().cloned().map(|a| a.into()).collect();
         Path(path)
     }
 }
 
-impl<'a> fmt::Display for Path<'a> {
+impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_path().display())
     }

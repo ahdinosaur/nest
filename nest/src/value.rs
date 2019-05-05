@@ -1,5 +1,4 @@
 use std::convert::From;
-use std::fmt;
 use std::iter::FromIterator;
 use std::str::FromStr;
 

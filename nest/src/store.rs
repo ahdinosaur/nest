@@ -4,7 +4,7 @@ use std::path;
 use indexmap::IndexMap;
 use log::{debug, info};
 use mkdirp::mkdirp;
-use snafu::{ensure, OptionExt, ResultExt, Snafu};
+use snafu::{ensure, OptionExt, ResultExt};
 
 use crate::error::{self, Error, Result};
 use crate::path::Path;
@@ -100,9 +100,9 @@ impl Store {
     }
 
     /// Get the `Value` at the given `path`.
-    pub fn get<'a, A>(&'static self, path: A) -> Result<'a, Value>
+    pub fn get<A>(&self, path: A) -> Result<Value>
     where
-        A: Into<Path<'a>>,
+        A: Into<Path>,
     {
         let path = path.into();
         info!("nest::Store#get({:?})", path);
@@ -119,9 +119,9 @@ impl Store {
     }
 
     /// Set the `Value` at the given `path`.
-    pub fn set<'a, A>(&'static self, path: A, value: &Value) -> Result<'a, ()>
+    pub fn set<A>(&self, path: A, value: &Value) -> Result<()>
     where
-        A: Into<Path<'a>>,
+        A: Into<Path>,
     {
         let path = path.into();
         info!("nest::Store#set({:?}), {:?}", path, value);
@@ -134,9 +134,9 @@ impl Store {
     }
 
     /// Return a sub-`Store` at the given `path`.
-    pub fn sub<'a, A>(&'static self, path: A) -> Result<'a, Store>
+    pub fn sub<A>(&self, path: A) -> Result<Store>
     where
-        A: Into<Path<'a>>,
+        A: Into<Path>,
     {
         let path = path.into();
 
@@ -153,10 +153,7 @@ impl Store {
     }
 }
 
-fn traverse_schema<'a>(
-    path: Path<'a>,
-    schema: &'static Schema,
-) -> Option<(Path<'a>, &'static Schema)> {
+fn traverse_schema<'a>(path: Path, schema: &'a Schema) -> Option<(Path, &'a Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
@@ -173,12 +170,7 @@ fn traverse_schema<'a>(
     }
 }
 
-fn get_in_schema<'a>(
-    schema: &'static Schema,
-    root: &path::Path,
-    path: Path<'a>,
-    depth: usize,
-) -> Result<'a, Value> {
+fn get_in_schema(schema: &Schema, root: &path::Path, path: Path, depth: usize) -> Result<Value> {
     debug!(
         "get_in_schema({:?}, {:?}, {:?}, {:?})",
         schema, root, path, depth
@@ -211,13 +203,13 @@ fn get_in_schema<'a>(
     }
 }
 
-fn set_in_schema<'a>(
-    schema: &'static Schema,
+fn set_in_schema(
+    schema: &Schema,
     root: &path::Path,
-    path: Path<'a>,
+    path: Path,
     value: &Value,
     depth: usize,
-) -> Result<'a, ()> {
+) -> Result<()> {
     match schema {
         // if schema is a directory, it refers to a nested value
         Schema::Directory(map) => {

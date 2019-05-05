@@ -24,9 +24,9 @@ pub enum Schema {
 }
 
 impl TryFrom<Value> for Schema {
-    type Error = Error<'static>;
+    type Error = Error;
 
-    fn try_from(value: Value) -> Result<'static, Self> {
+    fn try_from(value: Value) -> Result<Self> {
         match value {
             Value::Object(object) => {
                 let mut map = BTreeMap::new();
@@ -56,9 +56,9 @@ impl TryFrom<Value> for Schema {
 }
 
 impl TryFrom<json::Value> for Schema {
-    type Error = Error<'static>;
+    type Error = Error;
 
-    fn try_from(value: json::Value) -> Result<'static, Self> {
+    fn try_from(value: json::Value) -> Result<Self> {
         let value: Value = value.into();
         value.try_into()
     }

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
 use objekt;
-use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
+use snafu::ResultExt;
 
 use crate::error::{self, Error};
 use crate::value::Value;
@@ -20,8 +20,8 @@ pub use self::toml::Toml;
 pub use self::yaml::Yaml;
 
 pub trait Source: objekt::Clone + std::fmt::Debug {
-    fn read<'a>(&'static self, path: PathBuf) -> Result<Value, Error<'a>>;
-    fn write<'a>(&'static self, path: PathBuf, value: &Value) -> Result<(), Error<'a>>;
+    fn read(&self, path: PathBuf) -> Result<Value, Error>;
+    fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error>;
 }
 
 objekt::clone_trait_object!(Source);
@@ -38,7 +38,7 @@ impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
 {
-    fn read<'a>(&'static self, path: PathBuf) -> Result<Value, Error<'a>> {
+    fn read(&self, path: PathBuf) -> Result<Value, Error> {
         let file_path = path.with_extension(self.extension());
         let file_string =
             read_file(&file_path).context(error::ReadSource { path: path.clone() })?;
@@ -48,7 +48,7 @@ where
         Ok(value)
     }
 
-    fn write<'a>(&'static self, path: PathBuf, value: &Value) -> Result<(), Error<'a>> {
+    fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
         let file_string = self
             .serialize(&value)
