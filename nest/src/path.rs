@@ -92,7 +92,7 @@ where
 }
 
 impl<'a> fmt::Display for Path<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.to_path().display())
     }
 }

@@ -4,8 +4,9 @@ use std::path;
 use indexmap::IndexMap;
 use log::{debug, info};
 use mkdirp::mkdirp;
+use snafu::{ensure, ResultExt, Snafu};
 
-use crate::error::Error;
+use crate::error::{self, Result};
 use crate::path::Path;
 use crate::schema::Schema;
 use crate::value::Value;
@@ -99,7 +100,7 @@ impl Store {
     }
 
     /// Get the `Value` at the given `path`.
-    pub fn get<'a, A>(&self, path: A) -> Result<Value, Error>
+    pub fn get<'a, A>(&self, path: A) -> Result<'a, Value>
     where
         A: Into<Path<'a>>,
     {
@@ -121,7 +122,7 @@ impl Store {
     }
 
     /// Set the `Value` at the given `path`.
-    pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<(), Error>
+    pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<'a, ()>
     where
         A: Into<Path<'a>>,
     {
@@ -139,7 +140,7 @@ impl Store {
     }
 
     /// Return a sub-`Store` at the given `path`.
-    pub fn sub<'a, A>(&self, path: A) -> Result<Store, Error>
+    pub fn sub<'a, A>(&self, path: A) -> Result<'a, Store>
     where
         A: Into<Path<'a>>,
     {
@@ -176,12 +177,12 @@ fn traverse_schema<'a, 'b>(path: Path<'a>, schema: &'b Schema) -> Option<(Path<'
     }
 }
 
-fn get_in_schema(
-    schema: &Schema,
+fn get_in_schema<'a>(
+    schema: &'static Schema,
     root: &path::Path,
-    path: Path,
+    path: Path<'a>,
     depth: usize,
-) -> Result<Value, Error> {
+) -> Result<'a, Value> {
     debug!(
         "get_in_schema({:?}, {:?}, {:?}, {:?})",
         schema, root, path, depth
@@ -192,7 +193,7 @@ fn get_in_schema(
         Schema::Directory(map) => {
             let mut next_map = IndexMap::new();
             map.iter()
-                .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
+                .try_for_each(|(key, nested_schema)| -> Result<()> {
                     let nested_path = path.append(key);
                     let value = get_in_schema(nested_schema, root, nested_path, depth + 1)?;
                     next_map.insert(key.clone(), value);
@@ -214,42 +215,39 @@ fn get_in_schema(
     }
 }
 
-fn set_in_schema(
-    schema: &Schema,
+fn set_in_schema<'a>(
+    schema: &'static Schema,
     root: &path::Path,
-    path: Path,
+    path: Path<'a>,
     value: &Value,
     depth: usize,
-) -> Result<(), Error> {
+) -> Result<'a, ()> {
     match schema {
         // if schema is a directory, it refers to a nested value
         Schema::Directory(map) => {
-            if let Value::Object(object) = value {
-                return map
-                    .iter()
-                    .try_for_each(|(key, nested_schema)| -> Result<(), Error> {
-                        let nested_path = path.append(key);
-                        if let Some(nested_value) = object.get(key) {
-                            set_in_schema(
-                                nested_schema,
-                                root,
-                                nested_path,
-                                nested_value,
-                                depth + 1,
-                            )?;
-                        }
-                        Ok(())
-                    });
-            } else {
-                Err(Error::ExpectedObjectValueForDirectorySchema)
-            }
+            ensure!(value.is_object(), error::SetObjectValueWhenDirectory);
+
+            let object = value.as_object();
+
+            return map
+                .iter()
+                .try_for_each(|(key, nested_schema)| -> Result<()> {
+                    let nested_path = path.append(key);
+                    if let Some(nested_value) = object.get(key) {
+                        set_in_schema(nested_schema, root, nested_path, nested_value, depth + 1)?;
+                    }
+                    Ok(())
+                });
         }
         // otherwise schema is a source (file)
         Schema::Source(source) => {
             let source_path: path::PathBuf = root.join(path.take(depth).to_path());
 
             // ensure parent directory exists
-            mkdirp(&source_path.parent().unwrap())?;
+            let directory_path = source_path.parent().unwrap();
+            mkdirp(&directory_path).context(error::MakeDirectory {
+                path: directory_path,
+            })?;
 
             let source_value = match source.read(&source_path) {
                 Err(Error::Io(err)) => {
@@ -276,7 +274,7 @@ fn set_in_schema(
     }
 }
 
-fn get_in_value(path: Path, value: Value) -> Result<Value, Error> {
+fn get_in_value(path: Path, value: Value) -> Result<Value> {
     if path.is_empty() {
         return Ok(value);
     }
@@ -291,7 +289,7 @@ fn get_in_value(path: Path, value: Value) -> Result<Value, Error> {
     }
 }
 
-fn set_in_value(value: Value, path: Path, next_value_at_path: Value) -> Result<Value, Error> {
+fn set_in_value(value: Value, path: Path, next_value_at_path: Value) -> Result<Value> {
     if path.is_empty() {
         return Ok(next_value_at_path);
     }

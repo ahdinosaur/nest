@@ -4,8 +4,9 @@ use std::path::Path;
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
 use objekt;
+use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 
-use crate::error::Error;
+use crate::error::{self, Error, SerdeError};
 use crate::value::Value;
 
 mod hjson;
@@ -33,20 +34,27 @@ pub trait FileSource: objekt::Clone + std::fmt::Debug {
 
 objekt::clone_trait_object!(FileSource);
 
-impl<A: 'static> Source for A
+impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
 {
     fn read(&self, path: &Path) -> Result<Value, Error> {
         let file_path = path.with_extension(self.extension());
-        let file_string = read_file(&file_path)?;
-        self.deserialize(&file_string)
+        let file_string = read_file(&file_path).context(error::ReadSource { path })?;
+        let value = self
+            .deserialize(&file_string)
+            .map_err(|err| SerdeError(Box::new(err)))
+            .context(error::Serialize { path })?;
+        Ok(value)
     }
 
     fn write(&self, path: &Path, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
-        let file_string = self.serialize(&value)?;
-        write_file(&file_path, file_string)?;
+        let file_string = self
+            .serialize(&value)
+            .map_err(|err| SerdeError(Box::new(err)))
+            .context(error::Deserialize { path })?;
+        write_file(&file_path, file_string).context(error::WriteSource { path })?;
         Ok(())
     }
 }

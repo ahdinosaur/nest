@@ -1,4 +1,5 @@
 use std::convert::From;
+use std::fmt;
 use std::iter::FromIterator;
 use std::str::FromStr;
 
@@ -27,6 +28,19 @@ pub enum Value {
     String(String),
     Array(Vec<Value>),
     Object(IndexMap<String, Value>), // maybe use IndexedHashMap to preserve order?
+}
+
+impl Value {
+    pub fn is_object(&self) -> bool {
+        self.as_object().is_some()
+    }
+
+    pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
+        match *self {
+            Value::Object(ref map) => Some(map),
+            _ => None,
+        }
+    }
 }
 
 impl From<json::Value> for Value {

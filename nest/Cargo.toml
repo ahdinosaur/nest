@@ -9,6 +9,14 @@ repository = "https://github.com/ahdinosaur/nest"
 readme = "../README.md"
 keywords = ["database", "json", "filesystem"]
 
+[package.metadata.release]
+no-dev-version = true
+pre-release-commit-message = "{{crate_name}}: {{version}} 🐦"
+pre-release-hook = ["cargo", "test", "-p", "nest"]
+pre-release-replacements = [
+  { file="src/lib.rs", search="https://docs.rs/nest/[a-z0-9\\.-]+", replace="https://docs.rs/nest/{{version}}" }
+]
+
 [dependencies]
 atomicwrites = "0.2"
 log = "0.4"
@@ -19,6 +27,7 @@ serde-hjson = { version = "0.9", features = ["preserve_order"] }
 serde_yaml = "0.8"
 toml = { version = "0.5", features = ["preserve_order"] }
 indexmap = "1"
+snafu = "0.2"
 
 [dev-dependencies]
 assert_fs = "0.11"
@@ -27,11 +36,3 @@ version-sync = "0.8"
 
 [badges]
 travis-ci = { repository = "ahdinosaur/nest" }
-
-[package.metadata.release]
-no-dev-version = true
-pre-release-commit-message = "{{crate_name}}: {{version}} 🐦"
-pre-release-hook = ["cargo", "test", "-p", "nest"]
-pre-release-replacements = [
-  { file="src/lib.rs", search="https://docs.rs/nest/[a-z0-9\\.-]+", replace="https://docs.rs/nest/{{version}}" }
-]
