@@ -4,9 +4,9 @@ use std::path;
 use indexmap::IndexMap;
 use log::{debug, info};
 use mkdirp::mkdirp;
-use snafu::{ensure, ResultExt, Snafu};
+use snafu::{ensure, OptionExt, ResultExt, Snafu};
 
-use crate::error::{self, Result};
+use crate::error::{self, Error, Result};
 use crate::path::Path;
 use crate::schema::Schema;
 use crate::value::Value;
@@ -100,18 +100,15 @@ impl Store {
     }
 
     /// Get the `Value` at the given `path`.
-    pub fn get<'a, A>(&self, path: A) -> Result<'a, Value>
+    pub fn get<'a, A>(&'static self, path: A) -> Result<'a, Value>
     where
         A: Into<Path<'a>>,
     {
         let path = path.into();
         info!("nest::Store#get({:?})", path);
 
-        let traversed = traverse_schema(path.clone(), &self.schema);
-        if traversed.is_none() {
-            return Err(Error::NotFoundInSchema);
-        }
-        let (extra_path, schema) = traversed.unwrap();
+        let (extra_path, schema) = traverse_schema(path.clone(), &self.schema)
+            .context(error::GetSchema { path: path.clone() })?;
 
         debug!("extra_path: {:?}", extra_path);
 
@@ -122,45 +119,44 @@ impl Store {
     }
 
     /// Set the `Value` at the given `path`.
-    pub fn set<'a, A>(&self, path: A, value: &Value) -> Result<'a, ()>
+    pub fn set<'a, A>(&'static self, path: A, value: &Value) -> Result<'a, ()>
     where
         A: Into<Path<'a>>,
     {
         let path = path.into();
         info!("nest::Store#set({:?}), {:?}", path, value);
 
-        let traversed = traverse_schema(path.clone(), &self.schema);
-        if traversed.is_none() {
-            return Err(Error::NotFoundInSchema);
-        }
-        let (extra_path, schema) = traversed.unwrap();
+        let (extra_path, schema) = traverse_schema(path.clone(), &self.schema)
+            .context(error::GetSchema { path: path.clone() })?;
 
         let depth = path.clone().len() - extra_path.len();
         set_in_schema(schema, &self.root, path.clone(), value, depth)
     }
 
     /// Return a sub-`Store` at the given `path`.
-    pub fn sub<'a, A>(&self, path: A) -> Result<'a, Store>
+    pub fn sub<'a, A>(&'static self, path: A) -> Result<'a, Store>
     where
         A: Into<Path<'a>>,
     {
         let path = path.into();
-        match traverse_schema(path.clone(), &self.schema) {
-            None => Err(Error::NotFoundInSchema),
-            Some((extra_path, schema)) => {
-                let depth = path.len() - extra_path.len();
-                let nested_path = path.take(depth);
 
-                Ok(Store {
-                    schema: (*schema).clone(),
-                    root: self.root.join(nested_path.to_path()),
-                })
-            }
-        }
+        let (extra_path, schema) = traverse_schema(path.clone(), &self.schema)
+            .context(error::GetSchema { path: path.clone() })?;
+
+        let depth = path.len() - extra_path.len();
+        let nested_path = path.take(depth);
+
+        Ok(Store {
+            schema: (*schema).clone(),
+            root: self.root.join(nested_path.to_path()),
+        })
     }
 }
 
-fn traverse_schema<'a, 'b>(path: Path<'a>, schema: &'b Schema) -> Option<(Path<'a>, &'b Schema)> {
+fn traverse_schema<'a>(
+    path: Path<'a>,
+    schema: &'static Schema,
+) -> Option<(Path<'a>, &'static Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
@@ -225,9 +221,12 @@ fn set_in_schema<'a>(
     match schema {
         // if schema is a directory, it refers to a nested value
         Schema::Directory(map) => {
-            ensure!(value.is_object(), error::SetObjectValueWhenDirectory);
+            ensure!(
+                value.is_object(),
+                error::SetObjectValueWhenDirectory { path: path.clone() }
+            );
 
-            let object = value.as_object();
+            let object = value.as_object().unwrap();
 
             return map
                 .iter()
@@ -250,13 +249,17 @@ fn set_in_schema<'a>(
             })?;
 
             let source_value = match source.read(&source_path) {
-                Err(Error::Io(err)) => {
-                    match err.kind() {
-                        io::ErrorKind::NotFound => {
-                            // otherwise default to an empty object
-                            Ok(Value::Object(IndexMap::new()))
+                Err(err) => {
+                    if let Error::ReadSource { ref source, .. } = err {
+                        match source.kind() {
+                            io::ErrorKind::NotFound => {
+                                // otherwise default to an empty object
+                                Ok(Value::Object(IndexMap::new()))
+                            }
+                            _ => Err(err),
                         }
-                        _ => Err(Error::Io(err)),
+                    } else {
+                        Err(err)
                     }
                 }
                 result => result,
@@ -282,7 +285,9 @@ fn get_in_value(path: Path, value: Value) -> Result<Value> {
         Value::Object(object) => {
             let key = path.first();
             let next_path = path.rest();
-            let next_value = object.get(key).ok_or(Error::NotFoundInValue)?;
+            let next_value = object
+                .get(key)
+                .context(error::GetSchema { path: path.clone() })?;
             get_in_value(next_path, next_value.clone())
         }
         _ => Ok(value),

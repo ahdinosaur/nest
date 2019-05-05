@@ -6,7 +6,7 @@
 //!
 //! The [`Store`](struct.Store.html) docs are a good place to get started.
 
-pub use self::error::{Error, SerdeError};
+pub use self::error::Error;
 pub use self::schema::Schema;
 pub use self::source::{FileSource, Source};
 pub use self::store::Store;

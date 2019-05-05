@@ -6,7 +6,7 @@ use atomicwrites::{AtomicFile, OverwriteBehavior};
 use objekt;
 use snafu::{ensure, Backtrace, ErrorCompat, ResultExt, Snafu};
 
-use crate::error::{self, Error, SerdeError};
+use crate::error::{self, Error};
 use crate::value::Value;
 
 mod hjson;
@@ -20,16 +20,16 @@ pub use self::toml::Toml;
 pub use self::yaml::Yaml;
 
 pub trait Source: objekt::Clone + std::fmt::Debug {
-    fn read(&self, path: &Path) -> Result<Value, Error>;
-    fn write(&self, path: &Path, value: &Value) -> Result<(), Error>;
+    fn read<'a>(&'static self, path: &'a Path) -> Result<Value, Error<'a>>;
+    fn write<'a>(&'static self, path: &'a Path, value: &Value) -> Result<(), Error<'a>>;
 }
 
 objekt::clone_trait_object!(Source);
 
 pub trait FileSource: objekt::Clone + std::fmt::Debug {
     fn extension(&self) -> String;
-    fn deserialize(&self, string: &str) -> Result<Value, Error>;
-    fn serialize(&self, value: &Value) -> Result<String, Error>;
+    fn deserialize(&self, string: &str) -> Result<Value, error::BoxError>;
+    fn serialize(&self, value: &Value) -> Result<String, error::BoxError>;
 }
 
 objekt::clone_trait_object!(FileSource);
@@ -38,22 +38,18 @@ impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
 {
-    fn read(&self, path: &Path) -> Result<Value, Error> {
+    fn read<'a>(&'static self, path: &'a Path) -> Result<Value, Error<'a>> {
         let file_path = path.with_extension(self.extension());
         let file_string = read_file(&file_path).context(error::ReadSource { path })?;
         let value = self
             .deserialize(&file_string)
-            .map_err(|err| SerdeError(Box::new(err)))
-            .context(error::Serialize { path })?;
+            .context(error::Deserialize { path })?;
         Ok(value)
     }
 
-    fn write(&self, path: &Path, value: &Value) -> Result<(), Error> {
+    fn write<'a>(&'static self, path: &'a Path, value: &Value) -> Result<(), Error<'a>> {
         let file_path = path.with_extension(self.extension());
-        let file_string = self
-            .serialize(&value)
-            .map_err(|err| SerdeError(Box::new(err)))
-            .context(error::Deserialize { path })?;
+        let file_string = self.serialize(&value).context(error::Serialize { path })?;
         write_file(&file_path, file_string).context(error::WriteSource { path })?;
         Ok(())
     }
