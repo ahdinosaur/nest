@@ -153,7 +153,7 @@ impl Store {
     }
 }
 
-fn traverse_schema<'a>(path: Path, schema: &'a Schema) -> Option<(Path, &'a Schema)> {
+fn traverse_schema(path: Path, schema: &Schema) -> Option<(Path, &Schema)> {
     match schema {
         Schema::Directory(map) => {
             if path.is_empty() {
@@ -182,7 +182,7 @@ fn get_in_schema(schema: &Schema, root: &path::Path, path: Path, depth: usize) -
             let mut next_map = IndexMap::new();
             map.iter()
                 .try_for_each(|(key, nested_schema)| -> Result<()> {
-                    let nested_path = path.append(key);
+                    let nested_path = path.append(&key);
                     let value = get_in_schema(nested_schema, root, nested_path, depth + 1)?;
                     next_map.insert(key.clone(), value);
                     Ok(())
@@ -220,15 +220,14 @@ fn set_in_schema(
 
             let object = value.as_object().unwrap();
 
-            return map
-                .iter()
+            map.iter()
                 .try_for_each(|(key, nested_schema)| -> Result<()> {
                     let nested_path = path.append(key);
                     if let Some(nested_value) = object.get(key) {
                         set_in_schema(nested_schema, root, nested_path, nested_value, depth + 1)?;
                     }
                     Ok(())
-                });
+                })
         }
         // otherwise schema is a source (file)
         Schema::Source(source) => {

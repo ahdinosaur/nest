@@ -1,3 +1,4 @@
+use std::convert::Into;
 use std::fmt;
 use std::path;
 
@@ -14,7 +15,7 @@ impl Path {
     }
 
     pub fn first(&self) -> &String {
-        self.0.get(0).unwrap()
+        &self.0[0]
     }
 
     pub fn rest(&self) -> Self {
@@ -22,17 +23,17 @@ impl Path {
     }
 
     pub fn take(&self, num: usize) -> Self {
-        Path(self.0.get(0..num).unwrap().to_vec())
+        Path(self.0[0..num].to_vec())
     }
 
     pub fn skip(&self, num: usize) -> Self {
-        Path(self.0.get(num..self.len()).unwrap().to_vec())
+        Path(self.0[num..self.len()].to_vec())
     }
 
-    pub fn append(&self, item: &String) -> Self {
+    pub fn append(&self, item: &str) -> Self {
         let mut vec = Vec::new();
         vec.extend(self.0.iter().cloned());
-        vec.push(item.clone());
+        vec.push(item.to_owned());
         Path(vec)
     }
 
@@ -67,7 +68,7 @@ macro_rules! store_path_from_array_impls {
                 A: Into<String> + Clone
             {
                 fn from(path: &[A; $N]) -> Path {
-                    let path: Vec<String> = path.into_iter().cloned().map(|a| a.into()).collect();
+                    let path: Vec<String> = path.into_iter().cloned().map(Into::into).collect();
                     Path(path)
                 }
             }
@@ -87,7 +88,7 @@ where
     A: Into<String> + Clone,
 {
     fn from(path: &Vec<A>) -> Path {
-        let path: Vec<String> = path.into_iter().cloned().map(|a| a.into()).collect();
+        let path: Vec<String> = path.iter().cloned().map(Into::into).collect();
         Path(path)
     }
 }
