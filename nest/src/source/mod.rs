@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use atomicwrites::{AtomicFile, OverwriteBehavior};
 use objekt;
@@ -20,8 +20,8 @@ pub use self::toml::Toml;
 pub use self::yaml::Yaml;
 
 pub trait Source: objekt::Clone + std::fmt::Debug {
-    fn read<'a>(&'static self, path: &'a Path) -> Result<Value, Error<'a>>;
-    fn write<'a>(&'static self, path: &'a Path, value: &Value) -> Result<(), Error<'a>>;
+    fn read<'a>(&'static self, path: PathBuf) -> Result<Value, Error<'a>>;
+    fn write<'a>(&'static self, path: PathBuf, value: &Value) -> Result<(), Error<'a>>;
 }
 
 objekt::clone_trait_object!(Source);
@@ -38,19 +38,22 @@ impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
 {
-    fn read<'a>(&'static self, path: &'a Path) -> Result<Value, Error<'a>> {
+    fn read<'a>(&'static self, path: PathBuf) -> Result<Value, Error<'a>> {
         let file_path = path.with_extension(self.extension());
-        let file_string = read_file(&file_path).context(error::ReadSource { path })?;
+        let file_string =
+            read_file(&file_path).context(error::ReadSource { path: path.clone() })?;
         let value = self
             .deserialize(&file_string)
-            .context(error::Deserialize { path })?;
+            .context(error::Deserialize { path: path.clone() })?;
         Ok(value)
     }
 
-    fn write<'a>(&'static self, path: &'a Path, value: &Value) -> Result<(), Error<'a>> {
+    fn write<'a>(&'static self, path: PathBuf, value: &Value) -> Result<(), Error<'a>> {
         let file_path = path.with_extension(self.extension());
-        let file_string = self.serialize(&value).context(error::Serialize { path })?;
-        write_file(&file_path, file_string).context(error::WriteSource { path })?;
+        let file_string = self
+            .serialize(&value)
+            .context(error::Serialize { path: path.clone() })?;
+        write_file(&file_path, file_string).context(error::WriteSource { path: path.clone() })?;
         Ok(())
     }
 }

@@ -202,7 +202,7 @@ fn get_in_schema<'a>(
             let source_path: path::PathBuf = root.join(path.take(depth).to_path());
 
             // read the file as a value
-            let source_value = source.read(&source_path)?;
+            let source_value = source.read(source_path)?;
 
             // get value within source (file) value at path
             let value_path = path.skip(depth);
@@ -248,7 +248,7 @@ fn set_in_schema<'a>(
                 path: directory_path,
             })?;
 
-            let source_value = match source.read(&source_path) {
+            let source_value = match source.read(source_path.clone()) {
                 Err(err) => {
                     if let Error::ReadSource { ref source, .. } = err {
                         match source.kind() {
@@ -270,7 +270,7 @@ fn set_in_schema<'a>(
             let next_value = set_in_value(source_value, value_path, value.clone())?;
 
             // write new value to source (file)
-            source.write(&source_path, &next_value)?;
+            source.write(source_path.clone(), &next_value)?;
 
             Ok(())
         }

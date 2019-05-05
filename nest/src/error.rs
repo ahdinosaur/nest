@@ -24,27 +24,27 @@ pub type BoxError = Box<dyn std::error::Error>;
 pub enum Error<'a> {
     #[snafu(display("Could not serialize string at {}: {}", path.display(), source))]
     Serialize {
-        path: &'a path::Path,
+        path: path::PathBuf,
         source: BoxError,
     },
     #[snafu(display("Could not deserialize value at {}: {}", path.display(), source))]
     Deserialize {
-        path: &'a path::Path,
+        path: path::PathBuf,
         source: BoxError,
     },
     #[snafu(display("Could not read file at {}: {}", path.display(), source))]
     ReadSource {
-        path: &'a path::Path,
+        path: path::PathBuf,
         source: io::Error,
     },
     #[snafu(display("Could not write file at {}: {}", path.display(), source))]
     WriteSource {
-        path: &'a path::Path,
+        path: path::PathBuf,
         source: io::Error,
     },
     #[snafu(display("Could not make directory at {}: {}", path.display(), source))]
     MakeDirectory {
-        path: &'a path::Path,
+        path: path::PathBuf,
         source: io::Error,
     },
     #[snafu(display("Schema not found at {}", path))]
