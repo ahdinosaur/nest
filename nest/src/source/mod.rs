@@ -28,13 +28,13 @@ objekt::clone_trait_object!(Source);
 
 pub trait FileSource: objekt::Clone + std::fmt::Debug {
     type Value;
+    type SerError: 'static + std::error::Error;
+    type DeError: 'static + std::error::Error;
 
     fn extension(&self) -> String;
-    fn deserialize(&self, string: &str) -> Result<Self::Value, error::BoxError>;
-    fn serialize(&self, value: &Self::Value) -> Result<String, error::BoxError>;
+    fn deserialize(&self, string: &str) -> Result<Self::Value, Self::DeError>;
+    fn serialize(&self, value: &Self::Value) -> Result<String, Self::SerError>;
 }
-
-// objekt::clone_trait_object!(FileSource);
 
 impl<A> Source for A
 where
@@ -45,11 +45,14 @@ where
         let file_path = path.with_extension(self.extension());
         let file_string =
             read_file(&file_path).context(error::ReadSource { path: path.clone() })?;
-        let file_value = self.deserialize(&file_string).context(error::Deserialize {
-            kind: self.extension(),
-            path: path.clone(),
-            string: file_string.clone(),
-        })?;
+        let file_value = self
+            .deserialize(&file_string)
+            .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })
+            .context(error::Deserialize {
+                kind: self.extension(),
+                path: path.clone(),
+                string: file_string.clone(),
+            })?;
         let value: Value = file_value.into();
         Ok(value)
     }
@@ -57,11 +60,14 @@ where
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
         let file_value = value.clone().into();
-        let file_string = self.serialize(&file_value).context(error::Serialize {
-            kind: self.extension(),
-            path: path.clone(),
-            value: value.clone(),
-        })?;
+        let file_string = self
+            .serialize(&file_value)
+            .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })
+            .context(error::Serialize {
+                kind: self.extension(),
+                path: path.clone(),
+                value: value.clone(),
+            })?;
         write_file(&file_path, file_string).context(error::WriteSource { path: path.clone() })?;
         Ok(())
     }
