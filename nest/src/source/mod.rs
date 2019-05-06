@@ -27,7 +27,7 @@ pub trait Source: objekt::Clone + std::fmt::Debug {
 objekt::clone_trait_object!(Source);
 
 pub trait FileSource: objekt::Clone + std::fmt::Debug {
-    type Value;
+    type Value: From<Value> + Into<Value>;
     type SerError: 'static + std::error::Error;
     type DeError: 'static + std::error::Error;
 
@@ -39,7 +39,6 @@ pub trait FileSource: objekt::Clone + std::fmt::Debug {
 impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
-    <A as FileSource>::Value: From<Value> + Into<Value>,
 {
     fn read(&self, path: PathBuf) -> Result<Value, Error> {
         let file_path = path.with_extension(self.extension());
