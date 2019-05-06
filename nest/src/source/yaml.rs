@@ -1,7 +1,9 @@
+use std::convert::TryFrom;
 use std::iter::FromIterator;
 
 use indexmap::IndexMap;
 use serde_yaml as yaml;
+use snafu::{ensure, Snafu};
 
 use super::FileSource;
 use crate::Value;
@@ -29,34 +31,52 @@ impl FileSource for Yaml {
     }
 }
 
-impl From<yaml::Value> for Value {
-    fn from(value: yaml::Value) -> Value {
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum FromYamlError {
+    #[snafu(display("Unable to convert Yaml with non-string key: {:#?}", key))]
+    NonStringKey { key: yaml::Value },
+}
+
+impl TryFrom<yaml::Value> for Value {
+    type Error = FromYamlError;
+
+    fn try_from(value: yaml::Value) -> Result<Value, Self::Error> {
         match value {
-            yaml::Value::Null => Value::Null,
-            yaml::Value::Bool(bool) => Value::Bool(bool),
-            yaml::Value::Number(number) => {
-                if number.is_u64() {
-                    Value::Uint(number.as_u64().unwrap())
-                } else if number.is_i64() {
-                    Value::Int(number.as_i64().unwrap())
-                } else {
-                    Value::Float(number.as_f64().unwrap())
-                }
-            }
-            yaml::Value::String(string) => Value::String(string),
+            yaml::Value::Null => Ok(Value::Null),
+            yaml::Value::Bool(bool) => Ok(Value::Bool(bool)),
+            yaml::Value::Number(number) => Ok(if number.is_u64() {
+                Value::Uint(number.as_u64().unwrap())
+            } else if number.is_i64() {
+                Value::Int(number.as_i64().unwrap())
+            } else {
+                Value::Float(number.as_f64().unwrap())
+            }),
+            yaml::Value::String(string) => Ok(Value::String(string)),
             yaml::Value::Sequence(sequence) => {
-                Value::Array(Vec::from_iter(sequence.into_iter().map(Self::from)))
+                let mut next_array = Vec::with_capacity(sequence.len());
+                sequence
+                    .into_iter()
+                    .try_for_each(|item| -> Result<(), FromYamlError> {
+                        let next_item = Self::try_from(item)?;
+                        next_array.push(next_item);
+                        Ok(())
+                    })?;
+                Ok(Value::Array(next_array))
             }
-            yaml::Value::Mapping(mapping) => Value::Object(IndexMap::from_iter(
-                mapping.into_iter().map(|(key, value)| {
-                    if let yaml::Value::String(key) = key {
-                        (key, Self::from(value))
-                    } else {
-                        // TODO, figure out how to handle this.
-                        panic!(".yaml source may only have string keys in object (mapping)")
-                    }
-                }),
-            )),
+            yaml::Value::Mapping(mapping) => {
+                let mut next_map = IndexMap::with_capacity(mapping.len());
+                mapping
+                    .into_iter()
+                    .try_for_each(|(key, value)| -> Result<(), FromYamlError> {
+                        ensure!(key.is_string(), NonStringKey { key: key.clone() });
+                        let key = key.as_str().unwrap().to_owned();
+                        let next_value = Self::try_from(value)?;
+                        next_map.insert(key, next_value);
+                        Ok(())
+                    })?;
+                Ok(Value::Object(next_map))
+            }
         }
     }
 }

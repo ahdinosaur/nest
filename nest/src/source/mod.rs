@@ -1,3 +1,5 @@
+use std::convert::{TryFrom, TryInto};
+use std::fmt;
 use std::fs::read_to_string;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -28,7 +30,7 @@ lazy_static! {
     ];
 }
 
-pub trait Source: Send + Sync + objekt::Clone + std::fmt::Debug {
+pub trait Source: Send + Sync + objekt::Clone + fmt::Debug {
     fn id(&self) -> String;
     fn read(&self, path: PathBuf) -> Result<Value, Error>;
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error>;
@@ -36,8 +38,8 @@ pub trait Source: Send + Sync + objekt::Clone + std::fmt::Debug {
 
 objekt::clone_trait_object!(Source);
 
-pub trait FileSource: Send + Sync + objekt::Clone + std::fmt::Debug {
-    type Value: From<Value> + Into<Value>;
+pub trait FileSource: Send + Sync + objekt::Clone + fmt::Debug {
+    type Value: 'static + TryFrom<Value> + TryInto<Value> + fmt::Debug + Clone;
     type SerError: 'static + std::error::Error;
     type DeError: 'static + std::error::Error;
 
@@ -48,7 +50,9 @@ pub trait FileSource: Send + Sync + objekt::Clone + std::fmt::Debug {
 
 impl<A> Source for A
 where
-    A: FileSource + Send + Sync + Clone + std::fmt::Debug,
+    A: FileSource + Send + Sync + Clone + fmt::Debug,
+    <<A as FileSource>::Value as TryInto<Value>>::Error: std::error::Error,
+    <<A as FileSource>::Value as TryFrom<Value>>::Error: std::error::Error,
 {
     fn id(&self) -> String {
         self.extension()
@@ -66,13 +70,29 @@ where
                 path: path.clone(),
                 string: file_string.clone(),
             })?;
-        let value: Value = file_value.into();
+        let value: Value = file_value
+            .clone()
+            .try_into()
+            .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })
+            .context(error::IntoValue {
+                kind: self.extension(),
+                path: path.clone(),
+                value: Box::new(file_value.clone()) as Box<dyn fmt::Debug>,
+            })?;
         Ok(value)
     }
 
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
-        let file_value = value.clone().into();
+        let file_value = value
+            .clone()
+            .try_into()
+            .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })
+            .context(error::FromValue {
+                kind: self.extension(),
+                path: path.clone(),
+                value: value.clone(),
+            })?;
         let file_string = self
             .serialize(&file_value)
             .map_err(|err| -> Box<dyn std::error::Error> { Box::new(err) })

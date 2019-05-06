@@ -18,17 +18,19 @@ pub type BoxError = Box<dyn error::Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Could not convert {} value at {} into nest value: {:#?}", kind, path.display(), value))]
+    #[snafu(display("Could not convert {} value at {} into nest value\n{:#?}\n{}", kind, path.display(), value, source))]
     IntoValue {
         path: path::PathBuf,
         kind: String,
         value: Box<dyn fmt::Debug>,
+        source: BoxError,
     },
-    #[snafu(display("Could not convert {} value at {} from nest value: {:#?}", kind, path.display(), value))]
+    #[snafu(display("Could not convert {} value at {} from nest value\n{:#?}\n{}", kind, path.display(), value, source))]
     FromValue {
         path: path::PathBuf,
         kind: String,
         value: Value,
+        source: BoxError,
     },
     #[snafu(display("Could not serialize {} value at {}\n{:#?}\n{}", kind, path.display(), value, source))]
     Serialize {

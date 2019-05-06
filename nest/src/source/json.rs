@@ -1,7 +1,10 @@
+use std::convert::TryFrom;
 use std::iter::FromIterator;
+use std::num::FpCategory;
 
 use indexmap::IndexMap;
 use serde_json as json;
+use snafu::{ensure, Snafu};
 
 use super::FileSource;
 use crate::Value;
@@ -56,28 +59,53 @@ impl From<json::Value> for Value {
     }
 }
 
-impl From<Value> for json::Value {
-    fn from(value: Value) -> json::Value {
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum IntoJsonError {
+    #[snafu(display("Json does not support NaN (Not a Number) number values"))]
+    Nan {},
+    #[snafu(display("Json does not support Infinity number values"))]
+    Infinite {},
+}
+
+impl TryFrom<Value> for json::Value {
+    type Error = IntoJsonError;
+
+    fn try_from(value: Value) -> Result<json::Value, Self::Error> {
         match value {
-            Value::Null => json::Value::Null,
-            Value::Bool(bool) => json::Value::Bool(bool),
-            Value::Int(int) => json::Value::Number(int.into()),
-            Value::Uint(uint) => json::Value::Number(uint.into()),
-            // will panic if float is NaN or Infinity
-            // TODO, figure out how to handle this. maybe implement From<Option<Value>> for json::Value ?
-            Value::Float(float) => match json::Number::from_f64(float) {
-                Some(number) => json::Value::Number(number),
-                None => panic!(".json source must not have NaN or Infinity numbers"),
-            },
-            Value::String(string) => json::Value::String(string),
-            Value::Array(array) => {
-                json::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+            Value::Null => Ok(json::Value::Null),
+            Value::Bool(bool) => Ok(json::Value::Bool(bool)),
+            Value::Int(int) => Ok(json::Value::Number(int.into())),
+            Value::Uint(uint) => Ok(json::Value::Number(uint.into())),
+            Value::Float(float) => {
+                ensure!(float.classify() != FpCategory::Nan, Nan {});
+                ensure!(float.classify() != FpCategory::Infinite, Infinite {});
+
+                Ok(json::Value::Number(json::Number::from_f64(float).unwrap()))
             }
-            Value::Object(object) => json::Value::Object(json::map::Map::from_iter(
+            Value::String(string) => Ok(json::Value::String(string)),
+            Value::Array(array) => {
+                let mut next_array = Vec::with_capacity(array.len());
+                array
+                    .into_iter()
+                    .try_for_each(|item| -> Result<(), IntoJsonError> {
+                        let next_item = Self::try_from(item)?;
+                        next_array.push(next_item);
+                        Ok(())
+                    })?;
+                Ok(json::Value::Array(next_array))
+            }
+            Value::Object(object) => {
+                let mut next_map = json::map::Map::with_capacity(object.len());
                 object
                     .into_iter()
-                    .map(|(key, value)| (key, Self::from(value))),
-            )),
+                    .try_for_each(|(key, value)| -> Result<(), IntoJsonError> {
+                        let next_value = Self::try_from(value)?;
+                        next_map.insert(key, next_value);
+                        Ok(())
+                    })?;
+                Ok(json::Value::Object(next_map))
+            }
         }
     }
 }

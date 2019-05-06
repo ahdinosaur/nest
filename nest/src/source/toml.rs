@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::iter::FromIterator;
 use std::str::FromStr;
 
@@ -6,6 +7,7 @@ use toml;
 
 use super::FileSource;
 use crate::Value;
+use snafu::Snafu;
 
 #[derive(Clone, Debug)]
 pub struct Toml {}
@@ -48,26 +50,49 @@ impl From<toml::value::Value> for Value {
     }
 }
 
-impl From<Value> for toml::value::Value {
-    fn from(value: Value) -> toml::value::Value {
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
+pub enum IntoTomlError {
+    #[snafu(display("Toml does not support null values"))]
+    Null {},
+}
+
+impl TryFrom<Value> for toml::value::Value {
+    type Error = IntoTomlError;
+
+    fn try_from(value: Value) -> Result<toml::value::Value, IntoTomlError> {
         match value {
-            Value::Null => panic!(".toml may not have null value"), // TODO oh no.
-            Value::Bool(bool) => toml::value::Value::Boolean(bool),
-            Value::Int(int) => toml::value::Value::Integer(int),
-            Value::Uint(uint) => toml::value::Value::Integer(uint as i64),
-            Value::Float(float) => toml::value::Value::Float(float),
-            Value::String(string) => match toml::value::Datetime::from_str(&string) {
+            Value::Null => Null {}.fail(),
+            Value::Bool(bool) => Ok(toml::value::Value::Boolean(bool)),
+            Value::Int(int) => Ok(toml::value::Value::Integer(int)),
+            Value::Uint(uint) => Ok(toml::value::Value::Integer(uint as i64)),
+            Value::Float(float) => Ok(toml::value::Value::Float(float)),
+            Value::String(string) => Ok(match toml::value::Datetime::from_str(&string) {
                 Ok(datetime) => toml::value::Value::Datetime(datetime),
                 Err(_) => toml::value::Value::String(string),
-            },
+            }),
             Value::Array(array) => {
-                toml::value::Value::Array(Vec::from_iter(array.into_iter().map(Self::from)))
+                let mut next_array = Vec::with_capacity(array.len());
+                array
+                    .into_iter()
+                    .try_for_each(|item| -> Result<(), IntoTomlError> {
+                        let next_item = <Self as TryFrom<Value>>::try_from(item)?;
+                        next_array.push(next_item);
+                        Ok(())
+                    })?;
+                Ok(toml::value::Value::Array(next_array))
             }
-            Value::Object(object) => toml::value::Value::Table(toml::value::Table::from_iter(
+            Value::Object(object) => {
+                let mut next_map = toml::value::Table::with_capacity(object.len());
                 object
                     .into_iter()
-                    .map(|(key, value)| (key, Self::from(value))),
-            )),
+                    .try_for_each(|(key, value)| -> Result<(), IntoTomlError> {
+                        let next_value = <Self as TryFrom<Value>>::try_from(value)?;
+                        next_map.insert(key, next_value);
+                        Ok(())
+                    })?;
+                Ok(toml::value::Value::Table(next_map))
+            }
         }
     }
 }
