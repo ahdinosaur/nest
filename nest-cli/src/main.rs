@@ -1,14 +1,16 @@
 #[macro_use]
 extern crate log;
 
-use clap_log_flag;
-use clap_verbosity_flag;
-use nest::{Error, Schema, Store, Value};
-use serde_json as json;
+use std::convert::{Into, TryInto};
 use std::env;
 use std::fs::read_to_string;
 use std::io::{self, Read};
 use std::path::PathBuf;
+
+use clap_log_flag;
+use clap_verbosity_flag;
+use nest::{Schema, Store, Value};
+use serde_json as json;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -51,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = match args.root {
         Some(path) => path,
         None => env::var("NEST_ROOT")
-            .map(std::convert::Into::into)
+            .map(Into::into)
             .or_else(|_| env::current_dir())?,
     };
 
@@ -66,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("schema string: {:#?}", schema_str);
     let schema_json: json::Value = json::from_str(&schema_str)?;
     debug!("schema json: {:#?}", schema_json);
-    let schema: Schema = schema_json.into();
+    let schema: Schema = schema_json.try_into()?;
     debug!("schema: {:#?}", schema);
 
     let store = Store::new(root, schema);
@@ -75,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Get { path } => {
             let path = parse_path(&path);
             let value = store.get(&path)?;
-            let value_json: json::Value = value.into();
+            let value_json: json::Value = value.try_into()?;
             let value_string = json::to_string_pretty(&value_json)?;
             println!("{}", value_string);
         }
@@ -92,7 +94,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
             let value_json: json::Value = json::from_str(&value_str)?;
-            let value: Value = value_json.into();
+            let value: Value = value_json.try_into()?;
             store.set(&path, &value)?;
         }
     }
