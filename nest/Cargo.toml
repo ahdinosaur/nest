@@ -1,6 +1,6 @@
 [package]
 name = "nest"
-version = "0.4.0"
+version = "1.0.0"
 edition = "2018"
 authors = ["Michael Williams <michael.williams@enspiral.com>"]
 description = "Use your filesystem as a nested data store"

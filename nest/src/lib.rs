@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/nest/0.4.0")]
+#![doc(html_root_url = "https://docs.rs/nest/1.0.0")]
 
 //! # nest
 //!
