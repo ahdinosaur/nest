@@ -49,8 +49,9 @@ fn main() -> Result<(), Error> {
     println!("value: {:?} == 🐥", value);
 
     // try to get a value that doesn't map to the schema
-    let err = store.get(&["invalid", "path"]);
-    println!("err {:?}", err);
+    if let Err(err) = store.get(&["invalid", "path"]) {
+        println!("err: {}", err);
+    };
 
     Ok(())
 }

@@ -8,6 +8,32 @@ git log --oneline --format="- [%h](https://github.com/ahdinosaur/nest/commit/%H)
 
 ## Unreleased
 
+- [22dfbe2](https://github.com/ahdinosaur/nest/commit/22dfbe2c0b7dad5e96b89345a8ecb5ce545f9751): handle the fallible conversions gracefully!
+- [8ef2949](https://github.com/ahdinosaur/nest/commit/8ef29492427a19fff81d9b753f0dea3e464a00d5): move all functionality for each source type into a single file
+- [799e8c3](https://github.com/ahdinosaur/nest/commit/799e8c3fe9f91a0a8f96d73563870f96511685b1): easier type trait syntax
+- [b67a0e3](https://github.com/ahdinosaur/nest/commit/b67a0e3515da653ee55af03833ff1944cba8fb75): even more explicit types using trait placeholders
+- [6af4a59](https://github.com/ahdinosaur/nest/commit/6af4a59afd30244724df49e245c2b3055e8fa0aa): move value conversion up a layer
+- [50da22a](https://github.com/ahdinosaur/nest/commit/50da22a119f5d1b78a60796932b41edf98efb4ca): more info in serde errors
+- [263f17b](https://github.com/ahdinosaur/nest/commit/263f17bf6b12cdcd18cf8043db54346dd5e4fd10): as you wish clippy
+- [bdd77a3](https://github.com/ahdinosaur/nest/commit/bdd77a3f3cfccc8aaa7c0bb9d0d2f2e37a124b3e): own all the objects!
+- [582c737](https://github.com/ahdinosaur/nest/commit/582c737b7f8a7c4f52b80cbc30b14dd798f243f3): i'm over references
+- [e81d41e](https://github.com/ahdinosaur/nest/commit/e81d41ebd11ca33af442e2cf029a4de4508d33f3): so close yet so far
+- [b7eec16](https://github.com/ahdinosaur/nest/commit/b7eec16398d9707482f8164d5e7f4de652161ae6): checkpoint
+- [475f83e](https://github.com/ahdinosaur/nest/commit/475f83e28d789a56c1f42a6813d3befe45dc051e): preserve order in objects
+- [2f5bb86](https://github.com/ahdinosaur/nest/commit/2f5bb86b41ebc419bbd0e73a84fead28c7c66e20): move Path into separate module
+- [4cff7cf](https://github.com/ahdinosaur/nest/commit/4cff7cfb29ab6203f090bb8d3f30bca0fa14df15): fix tests using type ascription for &[&str; 0]
+- [0cad9ed](https://github.com/ahdinosaur/nest/commit/0cad9ed9736f3c34b5dff28f29b814552be9bdd1): yay StorePath works
+- [402049c](https://github.com/ahdinosaur/nest/commit/402049cc0f57431b806941e6aa1969742731874d): try to create StorePath struct
+- [60a722b](https://github.com/ahdinosaur/nest/commit/60a722b36b8a34858e52515b09bbcad50ca30e3c): discover TryFrom and TryInto traits, yay!
+- [06626f6](https://github.com/ahdinosaur/nest/commit/06626f6e5fde7f35de2ecd6ae88cbc1fac853c4b): add support for toml source files
+- [d5b063e](https://github.com/ahdinosaur/nest/commit/d5b063e3aef8cd8678e3f0a1c9a3f9cf6c64d0f8): add support for yaml source files
+- [d3169da](https://github.com/ahdinosaur/nest/commit/d3169da66221f8b8282117e00ff7ca92edaadb65): Revert "try to fix Into<Result<T>> but yeah nah"
+- [3da095e](https://github.com/ahdinosaur/nest/commit/3da095e5a0c2ae369ce127968887b3b9487a3f35): try to fix Into<Result<T>> but yeah nah
+- [1bcacce](https://github.com/ahdinosaur/nest/commit/1bcacce1e95c561e0d59313ffa575a220882153d): split source format code into separate files
+- [317288a](https://github.com/ahdinosaur/nest/commit/317288a295caddfcd1a19578a928ccf0b801af5b): use objekt library to handle cloneable trait object madness
+- [e4b65f0](https://github.com/ahdinosaur/nest/commit/e4b65f00f2f28a2ebdb021f0e8baf5ca56908c6a): refactor schema leaves as sources, using traits
+- [de3d32b](https://github.com/ahdinosaur/nest/commit/de3d32b766b90bbc391cf6802b1cc5eb57087205): nest: add support for .hjson format
+- [cfd7745](https://github.com/ahdinosaur/nest/commit/cfd7745b03ec535e86166b5d054af33fae787d36): nest: don't use serde_json::Number as Value::Number
 - [08618f8](https://github.com/ahdinosaur/nest/commit/08618f86f705e22e03829af7c9ddb02afc003bc6): satisfy the cargo clippy cult
 - [3bf3209](https://github.com/ahdinosaur/nest/commit/3bf3209a65456946e79717371801fc6b7755162d): cargo fmt --all
 
