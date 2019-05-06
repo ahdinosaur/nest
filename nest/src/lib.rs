@@ -6,6 +6,9 @@
 //!
 //! The [`Store`](struct.Store.html) docs are a good place to get started.
 
+#[macro_use]
+extern crate lazy_static;
+
 pub use self::error::Error;
 pub use self::schema::Schema;
 pub use self::source::{FileSource, Source};

@@ -19,14 +19,24 @@ pub use self::json::Json;
 pub use self::toml::Toml;
 pub use self::yaml::Yaml;
 
-pub trait Source: objekt::Clone + std::fmt::Debug {
+lazy_static! {
+    pub static ref SOURCES: Vec<Box<dyn Source>> = vec![
+        Box::new(Hjson {}),
+        Box::new(Json {}),
+        Box::new(Toml {}),
+        Box::new(Yaml {}),
+    ];
+}
+
+pub trait Source: Send + Sync + objekt::Clone + std::fmt::Debug {
+    fn id(&self) -> String;
     fn read(&self, path: PathBuf) -> Result<Value, Error>;
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error>;
 }
 
 objekt::clone_trait_object!(Source);
 
-pub trait FileSource: objekt::Clone + std::fmt::Debug {
+pub trait FileSource: Send + Sync + objekt::Clone + std::fmt::Debug {
     type Value: From<Value> + Into<Value>;
     type SerError: 'static + std::error::Error;
     type DeError: 'static + std::error::Error;
@@ -38,8 +48,12 @@ pub trait FileSource: objekt::Clone + std::fmt::Debug {
 
 impl<A> Source for A
 where
-    A: FileSource + Clone + std::fmt::Debug,
+    A: FileSource + Send + Sync + Clone + std::fmt::Debug,
 {
+    fn id(&self) -> String {
+        self.extension()
+    }
+
     fn read(&self, path: PathBuf) -> Result<Value, Error> {
         let file_path = path.with_extension(self.extension());
         let file_string =

@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 
 use serde_json as json;
+use snafu::OptionExt;
 
-use crate::error::{Error, Result};
-use crate::source::{self, Source};
+use crate::error::{self, Error, Result};
+use crate::source::{Source, SOURCES};
 use crate::value::Value;
 
 /// The mapping of your data structures with the filesystem (files and directories).
@@ -39,15 +40,21 @@ impl TryFrom<Value> for Schema {
                     })?;
                 Ok(Schema::Directory(map))
             }
-            Value::String(string) => match string.as_str() {
-                "json" => Ok(Schema::Source(Box::new(source::Json {}))),
-                "hjson" => Ok(Schema::Source(Box::new(source::Hjson {}))),
-                "toml" => Ok(Schema::Source(Box::new(source::Toml {}))),
-                "yaml" => Ok(Schema::Source(Box::new(source::Yaml {}))),
-                _ => Err(Error::InvalidSchema {
-                    value: Value::String(string),
-                }),
-            },
+            Value::String(string) => {
+                let source: Box<dyn Source> = SOURCES
+                    .iter()
+                    .find_map(|source| {
+                        if string == source.id() {
+                            Some(source.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .context(error::InvalidSchema {
+                        value: Value::String(string),
+                    })?;
+                Ok(Schema::Source(source))
+            }
             _ => Err(Error::InvalidSchema {
                 value: value.clone(),
             }),
