@@ -17,14 +17,16 @@ pub type BoxError = Box<dyn error::Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Could not serialize string at {}: {}", path.display(), source))]
+    #[snafu(display("Could not serialize value at {}\n{:#?}\n{}", path.display(), value, source))]
     Serialize {
         path: path::PathBuf,
+        value: Value,
         source: BoxError,
     },
-    #[snafu(display("Could not deserialize value at {}: {}", path.display(), source))]
+    #[snafu(display("Could not deserialize string at {}\n{}\n{}", path.display(), string, source))]
     Deserialize {
         path: path::PathBuf,
+        string: String,
         source: BoxError,
     },
     #[snafu(display("Could not read file at {}: {}", path.display(), source))]

@@ -42,17 +42,19 @@ where
         let file_path = path.with_extension(self.extension());
         let file_string =
             read_file(&file_path).context(error::ReadSource { path: path.clone() })?;
-        let value = self
-            .deserialize(&file_string)
-            .context(error::Deserialize { path: path.clone() })?;
+        let value = self.deserialize(&file_string).context(error::Deserialize {
+            path: path.clone(),
+            string: file_string.clone(),
+        })?;
         Ok(value)
     }
 
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
-        let file_string = self
-            .serialize(&value)
-            .context(error::Serialize { path: path.clone() })?;
+        let file_string = self.serialize(&value).context(error::Serialize {
+            path: path.clone(),
+            value: value.clone(),
+        })?;
         write_file(&file_path, file_string).context(error::WriteSource { path: path.clone() })?;
         Ok(())
     }
