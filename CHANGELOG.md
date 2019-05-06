@@ -6,7 +6,11 @@ with help from [`git log`](https://www.git-scm.com/docs/git-log):
 git log --oneline --format="- [%h](https://github.com/ahdinosaur/nest/commit/%H): %s"
 ```
 
-## Unreleased
+## [nest-cli-0.3.0](https://github.com/ahdinosaur/nest/tree/nest-cli-0.3.0)
+
+- [1a2ae4f](https://github.com/ahdinosaur/nest/commit/1a2ae4fa0dd7b4e5b3af3fc01758d43df81caf1e): update nest-cli to use nest@1.0
+
+## [nest-1.0.0](https://github.com/ahdinosaur/nest/tree/nest-1.0.0)
 
 - [22dfbe2](https://github.com/ahdinosaur/nest/commit/22dfbe2c0b7dad5e96b89345a8ecb5ce545f9751): handle the fallible conversions gracefully!
 - [8ef2949](https://github.com/ahdinosaur/nest/commit/8ef29492427a19fff81d9b753f0dea3e464a00d5): move all functionality for each source type into a single file
