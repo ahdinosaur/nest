@@ -27,31 +27,38 @@ pub trait Source: objekt::Clone + std::fmt::Debug {
 objekt::clone_trait_object!(Source);
 
 pub trait FileSource: objekt::Clone + std::fmt::Debug {
+    type Value;
+
     fn extension(&self) -> String;
-    fn deserialize(&self, string: &str) -> Result<Value, error::BoxError>;
-    fn serialize(&self, value: &Value) -> Result<String, error::BoxError>;
+    fn deserialize(&self, string: &str) -> Result<Self::Value, error::BoxError>;
+    fn serialize(&self, value: &Self::Value) -> Result<String, error::BoxError>;
 }
 
-objekt::clone_trait_object!(FileSource);
+// objekt::clone_trait_object!(FileSource);
 
 impl<A> Source for A
 where
     A: FileSource + Clone + std::fmt::Debug,
+    <A as FileSource>::Value: From<Value> + Into<Value>,
 {
     fn read(&self, path: PathBuf) -> Result<Value, Error> {
         let file_path = path.with_extension(self.extension());
         let file_string =
             read_file(&file_path).context(error::ReadSource { path: path.clone() })?;
-        let value = self.deserialize(&file_string).context(error::Deserialize {
+        let file_value = self.deserialize(&file_string).context(error::Deserialize {
+            kind: self.extension(),
             path: path.clone(),
             string: file_string.clone(),
         })?;
+        let value: Value = file_value.into();
         Ok(value)
     }
 
     fn write(&self, path: PathBuf, value: &Value) -> Result<(), Error> {
         let file_path = path.with_extension(self.extension());
-        let file_string = self.serialize(&value).context(error::Serialize {
+        let file_value = value.clone().into();
+        let file_string = self.serialize(&file_value).context(error::Serialize {
+            kind: self.extension(),
             path: path.clone(),
             value: value.clone(),
         })?;

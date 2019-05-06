@@ -1,4 +1,5 @@
 use std::error;
+use std::fmt;
 use std::io;
 use std::path;
 
@@ -17,15 +18,29 @@ pub type BoxError = Box<dyn error::Error>;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {
-    #[snafu(display("Could not serialize value at {}\n{:#?}\n{}", path.display(), value, source))]
+    #[snafu(display("Could not convert {} value at {} into nest value: {:#?}", kind, path.display(), value))]
+    IntoValue {
+        path: path::PathBuf,
+        kind: String,
+        value: Box<dyn fmt::Debug>,
+    },
+    #[snafu(display("Could not convert {} value at {} from nest value: {:#?}", kind, path.display(), value))]
+    FromValue {
+        path: path::PathBuf,
+        kind: String,
+        value: Value,
+    },
+    #[snafu(display("Could not serialize {} value at {}\n{:#?}\n{}", kind, path.display(), value, source))]
     Serialize {
         path: path::PathBuf,
+        kind: String,
         value: Value,
         source: BoxError,
     },
-    #[snafu(display("Could not deserialize string at {}\n{}\n{}", path.display(), string, source))]
+    #[snafu(display("Could not deserialize {} string at {}\n{}\n{}", kind, path.display(), string, source))]
     Deserialize {
         path: path::PathBuf,
+        kind: String,
         string: String,
         source: BoxError,
     },
