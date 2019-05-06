@@ -422,7 +422,7 @@ dependencies = [
 
 [[package]]
 name = "nest-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap-log-flag 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap-verbosity-flag 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
